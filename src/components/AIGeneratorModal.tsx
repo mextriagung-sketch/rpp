@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { CurriculumType, EducationLevel, LessonPlan, SchoolIdentity } from '../types';
 import { saveDefaultSchoolIdentity } from '../utils/storage';
+import { generatePedagogicalLessonPlan } from '../services/pedagogicalFallback';
 
 interface AIGeneratorModalProps {
   isOpen: boolean;
@@ -176,10 +177,91 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
     }, 2200);
 
     try {
-      const response = await fetch('/api/generate-rpp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let finalPlan: LessonPlan | null = null;
+
+      if (!forceFallback) {
+        try {
+          const response = await fetch('/api/generate-rpp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              curriculum,
+              level,
+              grade,
+              subject,
+              topic,
+              subTopic,
+              timeAllocation,
+              modelPembelajaran,
+              specialInstructions,
+              semester,
+              academicYear,
+              schoolIdentity,
+              forceFallback: false,
+            }),
+          });
+
+          if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            if (data.success && data.lessonPlan) {
+              finalPlan = data.lessonPlan;
+            }
+          } else if (response.status === 404) {
+            // Hosting Netlify / static hosting: tidak ada backend Node.js yang aktif di port 3000
+            console.warn(
+              'Endpoint /api/generate-rpp mengembalikan 404 (lingkungan hosting statis Netlify). Menjalankan perancang perangkat ajar kurikulum langsung di peramban.',
+            );
+            // Fallback to client-side pedagogical generator
+            finalPlan = generatePedagogicalLessonPlan({
+              curriculum,
+              level,
+              grade,
+              subject,
+              topic,
+              subTopic,
+              timeAllocation,
+              modelPembelajaran,
+              specialInstructions,
+              semester,
+              academicYear,
+              schoolIdentity,
+            });
+          } else {
+            const errJson = await response.json().catch(() => ({}));
+            const rawErr = errJson.error || `Server error: ${response.status}`;
+            throw new Error(rawErr);
+          }
+        } catch (fetchErr: any) {
+          const errMsg = String(fetchErr?.message || fetchErr || '');
+          // If Netlify 404 or network fetch error, gracefully handle with browser-based generator
+          if (
+            errMsg.includes('404') ||
+            errMsg.includes('Failed to fetch') ||
+            errMsg.includes('NetworkError') ||
+            errMsg.includes('Load failed')
+          ) {
+            console.warn('Backend server tidak merespons, beralih ke penyusun kurikulum lokal.');
+            finalPlan = generatePedagogicalLessonPlan({
+              curriculum,
+              level,
+              grade,
+              subject,
+              topic,
+              subTopic,
+              timeAllocation,
+              modelPembelajaran,
+              specialInstructions,
+              semester,
+              academicYear,
+              schoolIdentity,
+            });
+          } else {
+            throw fetchErr;
+          }
+        }
+      } else {
+        // Explicit forceFallback requested
+        finalPlan = generatePedagogicalLessonPlan({
           curriculum,
           level,
           grade,
@@ -192,28 +274,21 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
           semester,
           academicYear,
           schoolIdentity,
-          forceFallback,
-        }),
-      });
+        });
+      }
 
       clearInterval(stepInterval);
 
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        const rawErr = errJson.error || `Server error: ${response.status}`;
-        throw new Error(rawErr);
-      }
-
-      const data = await response.json();
-      if (data.success && data.lessonPlan) {
+      if (finalPlan) {
         if (saveAsDefault) {
           saveDefaultSchoolIdentity(schoolIdentity);
           onUpdateDefaultSchool?.(schoolIdentity);
         }
-        onGenerated(data.lessonPlan);
+        onGenerated(finalPlan);
         onClose();
+        return;
       } else {
-        throw new Error(data.error || 'Format respons tidak valid.');
+        throw new Error('Gagal menyusun perangkat ajar. Silakan coba kembali.');
       }
     } catch (err: any) {
       console.error('Error in AI generator:', err);
