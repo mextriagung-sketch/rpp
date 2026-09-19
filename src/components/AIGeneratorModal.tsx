@@ -103,7 +103,8 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
   const [subject, setSubject] = useState('IPAS');
   const [topic, setTopic] = useState('Ekosistem dan Rantai Makanan');
   const [subTopic, setSubTopic] = useState('Peran Produsen dan Konsumen');
-  const [timeAllocation, setTimeAllocation] = useState('2 x 35 Menit');
+  const [meetingCount, setMeetingCount] = useState<number>(2);
+  const [timeAllocation, setTimeAllocation] = useState('4 JP / 2 Pertemuan (2 x 35 Menit)');
   const [modelPembelajaran, setModelPembelajaran] = useState('Problem Based Learning (PBL)');
   const [specialInstructions, setSpecialInstructions] = useState('Sertakan pembelajaran berdiferensiasi dan aktivitas berbasis kelompok dengan LKPD aplikatif.');
 
@@ -118,6 +119,39 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
   const [loadingStep, setLoadingStep] = useState(0);
   const [errorMessage, setErrorMessage] = useState('');
   const [isHighDemand, setIsHighDemand] = useState(false);
+
+  const getMinutesPerJP = (lvl: EducationLevel) => {
+    switch (lvl) {
+      case 'PAUD':
+        return 60;
+      case 'SD':
+        return 35;
+      case 'SMP':
+        return 40;
+      case 'SMA':
+        return 45;
+      case 'SMK':
+        return 45;
+      default:
+        return 35;
+    }
+  };
+
+  const calculateSuggestedTimeAllocation = (count: number, lvl: EducationLevel) => {
+    const jpPerMeeting = lvl === 'SMK' ? 3 : lvl === 'PAUD' ? 1 : 2;
+    const mins = getMinutesPerJP(lvl);
+    if (count <= 1) {
+      return `${jpPerMeeting} x ${mins} Menit (1 Pertemuan)`;
+    }
+    const totalJP = count * jpPerMeeting;
+    return `${totalJP} JP / ${count} Pertemuan (${jpPerMeeting} x ${mins} Menit)`;
+  };
+
+  const handleMeetingCountChange = (newCount: number) => {
+    const validCount = Math.max(1, Math.min(20, newCount));
+    setMeetingCount(validCount);
+    setTimeAllocation(calculateSuggestedTimeAllocation(validCount, level));
+  };
 
   // Sync state whenever modal opens or defaultSchool updates
   useEffect(() => {
@@ -135,7 +169,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
     const config = LEVEL_CONFIG[newLevel];
     setGrade(config.grades[0] || '');
     setSubject(config.subjects[0] || '');
-    setTimeAllocation(config.defaultTime);
+    setTimeAllocation(calculateSuggestedTimeAllocation(meetingCount, newLevel));
     if (config.popularTopics.length > 0) {
       setTopic(config.popularTopics[0].topic);
       setSubTopic(config.popularTopics[0].subTopic || '');
@@ -192,6 +226,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               topic,
               subTopic,
               timeAllocation,
+              meetingCount,
               modelPembelajaran,
               specialInstructions,
               semester,
@@ -220,6 +255,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               topic,
               subTopic,
               timeAllocation,
+              meetingCount,
               modelPembelajaran,
               specialInstructions,
               semester,
@@ -249,6 +285,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               topic,
               subTopic,
               timeAllocation,
+              meetingCount,
               modelPembelajaran,
               specialInstructions,
               semester,
@@ -269,6 +306,7 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
           topic,
           subTopic,
           timeAllocation,
+          meetingCount,
           modelPembelajaran,
           specialInstructions,
           semester,
@@ -436,7 +474,33 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Pilih Format Kurikulum
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setCurriculum('merdeka_deep_learning')}
+                  className={`p-3 rounded-xl border text-left transition-all relative ${
+                    curriculum === 'merdeka_deep_learning'
+                      ? 'border-teal-600 bg-teal-50/80 text-teal-950 ring-2 ring-teal-500/20 shadow-xs'
+                      : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs sm:text-sm text-teal-950 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                      Merdeka (Deep Learning)
+                    </span>
+                    {curriculum === 'merdeka_deep_learning' && <Check className="w-4 h-4 text-teal-600 shrink-0" />}
+                  </div>
+                  <div className="mt-1.5">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 mb-1">
+                      Mindful • Meaningful • Joyful
+                    </span>
+                    <p className="text-[11px] text-slate-600 leading-snug">
+                      Pendekatan pembelajaran berkesadaran, bermakna kontekstual, dan menggembirakan.
+                    </p>
+                  </div>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setCurriculum('merdeka')}
@@ -447,12 +511,17 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm">Kurikulum Merdeka</span>
-                    {curriculum === 'merdeka' && <Check className="w-4 h-4 text-blue-600" />}
+                    <span className="font-bold text-xs sm:text-sm text-blue-950">Kurikulum Merdeka</span>
+                    {curriculum === 'merdeka' && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Modul Ajar, Capaian Pembelajaran (CP), Profil Pelajar Pancasila, Pemahaman Bermakna & Pertanyaan Pemantik.
-                  </p>
+                  <div className="mt-1.5">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 mb-1">
+                      Standar Modul Ajar
+                    </span>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      Capaian Pembelajaran (CP), Profil Pelajar Pancasila, Pemahaman Bermakna & Pemantik.
+                    </p>
+                  </div>
                 </button>
 
                 <button
@@ -465,12 +534,17 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm">Kurikulum 2013 (K13)</span>
-                    {curriculum === 'k13' && <Check className="w-4 h-4 text-indigo-600" />}
+                    <span className="font-bold text-xs sm:text-sm text-indigo-950">Kurikulum 2013</span>
+                    {curriculum === 'k13' && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    RPP Format KI-KD, Indikator Pencapaian (IPK), Pendekatan Saintifik (5M), dan Penguatan Karakter (PPK).
-                  </p>
+                  <div className="mt-1.5">
+                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 mb-1">
+                      Format KI-KD
+                    </span>
+                    <p className="text-[11px] text-slate-500 leading-snug">
+                      RPP Format KI-KD, Indikator IPK, Pendekatan Saintifik (5M) & Penguatan Karakter.
+                    </p>
+                  </div>
                 </button>
               </div>
             </div>
@@ -591,38 +665,113 @@ export const AIGeneratorModal: React.FC<AIGeneratorModalProps> = ({
               </div>
             </div>
 
-            {/* Model Pembelajaran & Alokasi Waktu */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Model Pembelajaran
-                </label>
-                <select
-                  value={modelPembelajaran}
-                  onChange={(e) => setModelPembelajaran(e.target.value)}
-                  className="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
-                  <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
-                  <option value="Discovery Learning">Discovery Learning</option>
-                  <option value="Inquiry Learning Terbimbing">Inquiry Learning Terbimbing</option>
-                  <option value="Cooperative Learning (Jigsaw/STAD)">Cooperative Learning</option>
-                  <option value="Diferensiasi Konten & Proses">Pembelajaran Berdiferensiasi</option>
-                </select>
+            {/* Model Pembelajaran */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Model Pembelajaran
+              </label>
+              <select
+                value={modelPembelajaran}
+                onChange={(e) => setModelPembelajaran(e.target.value)}
+                className="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
+                <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
+                <option value="Discovery Learning">Discovery Learning</option>
+                <option value="Inquiry Learning Terbimbing">Inquiry Learning Terbimbing</option>
+                <option value="Cooperative Learning (Jigsaw/STAD)">Cooperative Learning</option>
+                <option value="Diferensiasi Konten & Proses">Pembelajaran Berdiferensiasi</option>
+              </select>
+            </div>
+
+            {/* Alokasi Pertemuan & Waktu Pembelajaran */}
+            <div className="border border-blue-200 bg-linear-to-br from-blue-50/60 to-indigo-50/40 rounded-xl p-3.5 space-y-3 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0">
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                  <label className="text-xs font-bold text-slate-800">
+                    Alokasi Pertemuan & Waktu Pembelajaran
+                  </label>
+                </div>
+                <span className="text-[11px] text-blue-700 font-medium">
+                  {meetingCount} Pertemuan Terencana
+                </span>
               </div>
 
+              {/* Quick Meeting Count Selector Chips */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Alokasi Waktu
-                </label>
-                <input
-                  type="text"
-                  value={timeAllocation}
-                  onChange={(e) => setTimeAllocation(e.target.value)}
-                  placeholder="Contoh: 2 x 35 Menit (1 Pertemuan)"
-                  className="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[11px] font-semibold text-slate-600">
+                    Pilih Jumlah Pertemuan:
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    (Materi akan dipecah bertahap)
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                  {[1, 2, 3, 4, 5, 6].map((num) => {
+                    const isSelected = meetingCount === num;
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handleMeetingCountChange(num)}
+                        className={`py-1.5 px-2 rounded-lg text-xs font-semibold border transition-all text-center ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                        }`}
+                      >
+                        {num} Pertemuan
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Custom meeting count and total time input */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-blue-200/60">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Jumlah Pertemuan Kustom
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={meetingCount}
+                      onChange={(e) => handleMeetingCountChange(parseInt(e.target.value) || 1)}
+                      className="w-24 text-xs font-bold text-slate-800 border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-center"
+                    />
+                    <span className="text-xs text-slate-600 font-medium">Pertemuan</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Format Teks Alokasi Waktu
+                  </label>
+                  <input
+                    type="text"
+                    value={timeAllocation}
+                    onChange={(e) => setTimeAllocation(e.target.value)}
+                    placeholder="Contoh: 4 JP / 2 Pertemuan (2 x 35 Menit)"
+                    className="w-full text-xs border border-slate-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 font-medium"
+                  />
+                </div>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed bg-white/70 p-2 rounded-lg border border-blue-100 flex items-start gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                <span>
+                  {meetingCount > 1
+                    ? `Perangkat ajar akan menyusun alokasi materi bertahap ke dalam ${meetingCount} sesi pertemuan terpisah, lengkap dengan apersepsi, sintaks kegiatan inti, dan penutup untuk masing-masing pertemuan.`
+                    : 'Disusun untuk 1 sesi pertemuan terpadu.'}
+                </span>
+              </p>
             </div>
 
             {/* Special Instructions (Optional) */}

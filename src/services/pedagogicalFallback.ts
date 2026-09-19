@@ -1,4 +1,4 @@
-import { LessonPlan, SchoolIdentity } from '../types';
+import { LessonPlan, SchoolIdentity, PertemuanDetail, ActivityStep } from '../types';
 
 export interface GenerateOptions {
   curriculum: 'merdeka' | 'k13' | 'custom';
@@ -8,6 +8,7 @@ export interface GenerateOptions {
   topic: string;
   subTopic?: string;
   timeAllocation?: string;
+  meetingCount?: number;
   modelPembelajaran?: string;
   specialInstructions?: string;
   semester?: 'Ganjil' | 'Genap';
@@ -21,6 +22,126 @@ export interface GenerateOptions {
   schoolAddress?: string;
   city?: string;
   province?: string;
+}
+
+export function generateMultiMeetingDetails(
+  meetingCount: number,
+  topicFull: string,
+  modelPembelajaran: string,
+  timeAllocation: string
+): PertemuanDetail[] {
+  const result: PertemuanDetail[] = [];
+
+  const meetingThemes = [
+    {
+      fokus: `Orientasi Konseptual, Apersepsi & Identifikasi Masalah Utama ${topicFull}`,
+      inti: [
+        { phaseName: 'Pemberian Rangsangan (Stimulation)', description: `Guru menayangkan media/fenomena kontekstual tentang "${topicFull}". Peserta didik mengamati dan mencatat pertanyaan awal.`, durationMinutes: 15 },
+        { phaseName: 'Identifikasi Masalah & Hipotesis', description: `Peserta didik berdiskusi merumuskan masalah mendasar terkait "${topicFull}" dan menyusun dugaan sementara.`, durationMinutes: 20 },
+        { phaseName: 'Pembentukan Kelompok & Penjelasan Alur', description: `Guru membagi kelompok heterogen dan menjelaskan target capaian proyek/LKPD selama ${meetingCount} pertemuan ke depan.`, durationMinutes: 15 },
+      ],
+    },
+    {
+      fokus: `Penyelidikan Terbimbing, Eksperimen & Pengumpulan Data LKPD Berkelompok`,
+      inti: [
+        { phaseName: 'Pengumpulan Data & Studi Pustaka', description: `Kelompok mengumpulkan data melalui eksperimen sederhana, observasi, atau literatur tentang "${topicFull}".`, durationMinutes: 25 },
+        { phaseName: 'Bimbingan Penyelidikan Diferensiasi', description: `Guru memfasilitasi kelompok yang memerlukan bimbingan tambahan dan mengecek kelengkapan data lembar kerja.`, durationMinutes: 25 },
+      ],
+    },
+    {
+      fokus: `Analisis Data, Perancangan Solusi & Penyusunan Laporan Proyek`,
+      inti: [
+        { phaseName: 'Pengolahan Data & Diskusi Temuan', description: `Kelompok mengolah data yang didapat, menghubungkan bukti dengan konsep "${topicFull}", dan menyusun draf karya/laporan.`, durationMinutes: 25 },
+        { phaseName: 'Konsultasi & Perbaikan Draf Karya', description: `Setiap kelompok berkonsultasi dengan guru untuk mematangkan media presentasi atau prototipe solusi yang dibuat.`, durationMinutes: 25 },
+      ],
+    },
+    {
+      fokus: `Gelar Karya, Presentasi Antar-Kelompok & Verifikasi Ilmiah`,
+      inti: [
+        { phaseName: 'Presentasi & Unjuk Kerja Kelompok', description: `Perwakilan kelompok memaparkan hasil karya/solusi di depan kelas secara komunikatif dan bergantian.`, durationMinutes: 30 },
+        { phaseName: 'Tanya Jawab & Verifikasi Konsep', description: `Kelompok penanggap mengajukan pertanyaan kritis; guru memberikan penguatan dan klarifikasi miskonsepsi.`, durationMinutes: 20 },
+      ],
+    },
+    {
+      fokus: `Pendalaman Aplikasi Kontekstual, Studi Kasus Lanjutan & Refleksi Kritis`,
+      inti: [
+        { phaseName: 'Studi Kasus Lanjutan & Kolaborasi', description: `Peserta didik menganalisis studi kasus nyata yang lebih kompleks terkait penerapan materi "${topicFull}" di masyarakat.`, durationMinutes: 30 },
+        { phaseName: 'Refleksi Diferensiasi & Pengayaan', description: `Peserta didik menuliskan jurnal refleksi pribadi mengenai tantangan belajar dan solusi baru yang mereka temukan.`, durationMinutes: 20 },
+      ],
+    },
+    {
+      fokus: `Asesmen Sumatif Lingkup Materi, Evaluasi Portofolio & Tindak Lanjut`,
+      inti: [
+        { phaseName: 'Pelaksanaan Asesmen Sumatif', description: `Peserta didik mengerjakan asesmen pemahaman konsep dan penyelesaian masalah terkait materi pokok "${topicFull}".`, durationMinutes: 35 },
+        { phaseName: 'Evaluasi Proses & Rencana Tindak Lanjut', description: `Guru bersama peserta didik mereviu seluruh rangkaian pembelajaran selama ${meetingCount} pertemuan serta merumuskan tindak lanjut pengayaan.`, durationMinutes: 15 },
+      ],
+    },
+  ];
+
+  for (let i = 1; i <= meetingCount; i++) {
+    const themeIdx = (i - 1) % meetingThemes.length;
+    const theme = meetingThemes[themeIdx];
+    const isFirst = i === 1;
+    const isLast = i === meetingCount;
+
+    result.push({
+      pertemuanKe: i,
+      fokusMateri: `Pertemuan ${i}: ${theme.fokus}`,
+      alokasiWaktu: meetingCount > 1 ? `${timeAllocation} (Pertemuan ke-${i})` : timeAllocation,
+      kegiatanPendahuluan: [
+        {
+          id: `p${i}-pen-1`,
+          phaseName: 'Salam, Doa & Presensi',
+          description: `Guru menyapa siswa dengan hangat, berdoa bersama dipimpin salah satu peserta didik, dan memeriksa kehadiran serta kesiapan belajar.`,
+          durationMinutes: 3,
+        },
+        {
+          id: `p${i}-pen-2`,
+          phaseName: isFirst ? 'Apersepsi Awal & Pemantik' : `Apersepsi & Review Pertemuan ${i - 1}`,
+          description: isFirst
+            ? `Guru mengajukan pertanyaan pemantik kontekstual seputar "${topicFull}" untuk mengaktifkan skemata peserta didik.`
+            : `Guru mengajak peserta didik mengingat kembali hasil penyelidikan dan capaian tugas dari pertemuan ke-${i - 1}.`,
+          durationMinutes: 4,
+        },
+        {
+          id: `p${i}-pen-3`,
+          phaseName: 'Tujuan & Alur Pertemuan',
+          description: `Guru menyampaikan fokus pembelajaran pertemuan ke-${i} dan kriteria keberhasilan yang ditargetkan hari ini.`,
+          durationMinutes: 3,
+        },
+      ],
+      kegiatanInti: theme.inti.map((step, idx) => ({
+        id: `p${i}-inti-${idx + 1}`,
+        phaseName: step.phaseName,
+        description: step.description,
+        durationMinutes: step.durationMinutes,
+      })),
+      kegiatanPenutup: [
+        {
+          id: `p${i}-penutup-1`,
+          phaseName: 'Refleksi Pembelajaran Pertemuan Ini',
+          description: `Peserta didik mengungkapkan apa yang telah dipahami dan bagian mana dari aktivitas hari ini yang paling menarik atau menantang.`,
+          durationMinutes: 4,
+        },
+        {
+          id: `p${i}-penutup-2`,
+          phaseName: isLast ? 'Umpan Balik Akhir & Apresiasi' : `Tindak Lanjut Menuju Pertemuan ${i + 1}`,
+          description: isLast
+            ? `Guru memberikan apresiasi setinggi-tingginya kepada seluruh peserta didik atas kerja keras selama rangkaian ${meetingCount} pertemuan pembelajaran.`
+            : `Guru memberikan arahan persiapan atau bahan yang perlu dipelajari untuk pertemuan ke-${i + 1}.`,
+          durationMinutes: 4,
+        },
+        {
+          id: `p${i}-penutup-3`,
+          phaseName: 'Doa Penutup & Salam',
+          description: `Pembelajaran pertemuan ke-${i} diakhiri dengan doa bersama dan salam penutup.`,
+          durationMinutes: 2,
+        },
+      ],
+    });
+  }
+
+  return result;
 }
 
 export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonPlan {
@@ -39,6 +160,7 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
     schoolIdentity = {},
   } = options;
 
+  const meetingCount = Math.max(1, options.meetingCount || 1);
   const resolvedSchoolName = schoolIdentity.schoolName || options.schoolName || 'SD Negeri 1 Indonesia';
   const resolvedTeacherName = schoolIdentity.teacherName || options.teacherName || 'Guru Teladan, S.Pd.';
   const resolvedTeacherNip = schoolIdentity.teacherNip ?? options.teacherNip ?? '-';
@@ -70,7 +192,9 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
   }
 
   const topicFull = subTopic ? `${topic} (${subTopic})` : topic;
+  const isDeepLearning = curriculum === 'merdeka_deep_learning';
   const isK13 = curriculum === 'k13';
+  const isMerdeka = curriculum === 'merdeka' || isDeepLearning;
 
   // Syntax based on modelPembelajaran
   const modelLower = (modelPembelajaran || '').toLowerCase();
@@ -202,7 +326,9 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
   }
 
   const generatedId = `rpp-${Date.now()}`;
-  const title = isK13
+  const title = isDeepLearning
+    ? `Modul Ajar Deep Learning ${subject} - ${topic} (${fase})`
+    : isK13
     ? `RPP ${subject} - ${topic} (${grade})`
     : `Modul Ajar ${subject} - ${topic} (${fase})`;
 
@@ -218,7 +344,7 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
     subTopic,
     semester,
     academicYear,
-    meetingCount: 1,
+    meetingCount,
     timeAllocation,
     schoolIdentity: {
       schoolName: resolvedSchoolName,
@@ -266,6 +392,13 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
           `Mengapa menurut kalian materi ${topicFull} ini sangat penting untuk kita pahami bersama?`,
           `Apa akibatnya jika kita tidak memahami prinsip dasar ${topicFull} ini dengan benar?`,
         ],
+    deepLearningElements: isDeepLearning
+      ? {
+          mindfulLearning: `Pembelajaran Berkesadaran (Mindful Learning): Guru mengawali dengan latihan kesadaran penuh (mindful breathing/fokus sejenak) untuk menyelaraskan atensi murid, memperhatikan keragaman kecepatan belajar, serta membiasakan siswa menyimak secara aktif dan penuh empati saat membahas ${topicFull}.`,
+          meaningfulLearning: `Pembelajaran Bermakna (Meaningful Learning): Mengaitkan esensi konsep ${topicFull} secara langsung dengan peristiwa nyata dan masalah otentik di sekitar siswa, sehingga peserta didik memahami kegunaan riil materi tersebut dalam kehidupan, bukan sekadar menghafal teori.`,
+          joyfulLearning: `Pembelajaran Menggembirakan (Joyful Learning): Menciptakan iklim kelas yang aman secara emosional, menyajikan aktivitas berbasis penemuan yang memantik rasa ingin tahu (curiosity), serta memberikan apresiasi hangat terhadap setiap usaha dan karya siswa.`,
+        }
+      : undefined,
     kompetensiInti: isK13
       ? {
           ki1: 'Menghargai dan menghayati ajaran agama yang dianutnya.',
@@ -286,21 +419,22 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
     kegiatanPendahuluan: [
       {
         id: 'pen-1',
-        phaseName: '1. Orientasi & Doa Bersama',
-        description:
-          'Guru membuka kelas dengan salam hangat, menanyakan kabar siswa, berdoa bersama dipimpin salah satu peserta didik, dan memeriksa kehadiran.',
+        phaseName: isDeepLearning ? '1. Orientasi & Mindful Check-in' : '1. Orientasi & Doa Bersama',
+        description: isDeepLearning
+          ? `Guru menyapa peserta didik dengan hangat, memandu latihan relaksasi/fokus sejenak (mindful breathing 2 menit) untuk menghadirkan kesadaran penuh dan fokus belajar sebelum mengkaji materi "${topicFull}", kemudian berdoa bersama.`
+          : 'Guru membuka kelas dengan salam hangat, menanyakan kabar siswa, berdoa bersama dipimpin salah satu peserta didik, dan memeriksa kehadiran.',
         durationMinutes: 3,
       },
       {
         id: 'pen-2',
-        phaseName: '2. Apersepsi & Kaitan Pembelajaran',
-        description: `Guru mengaitkan materi sebelumnya dengan topik hari ini (${topicFull}) melalui pertanyaan pemantik kontekstual.`,
+        phaseName: isDeepLearning ? '2. Apersepsi Bermakna (Meaningful Connection)' : '2. Apersepsi & Kaitan Pembelajaran',
+        description: `Guru mengaitkan materi sebelumnya dengan topik hari ini (${topicFull}) melalui pertanyaan pemantik kontekstual yang relevan dengan kehidupan nyata peserta didik.`,
         durationMinutes: 4,
       },
       {
         id: 'pen-3',
-        phaseName: '3. Motivasi & Penyampaian Tujuan',
-        description: `Guru menyampaikan tujuan pembelajaran, manfaat mempelajari ${topicFull}, serta langkah kegiatan yang akan dilalui peserta didik hari ini.`,
+        phaseName: isDeepLearning ? '3. Motivasi & Joyful Spark' : '3. Motivasi & Penyampaian Tujuan',
+        description: `Guru menyampaikan tujuan pembelajaran, menumbuhkan rasa ingin tahu (curiosity), serta memotivasi siswa tentang manfaat mempelajari ${topicFull} dengan penuh antusias.`,
         durationMinutes: 3,
       },
     ],
@@ -313,15 +447,18 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
     kegiatanPenutup: [
       {
         id: 'tut-1',
-        phaseName: '1. Refleksi & Simpulan Bersama',
-        description: `Peserta didik bersama guru menyimpulkan butir-butir penting materi "${topicFull}" dan merefleksikan pengalaman belajar yang paling berkesan.`,
+        phaseName: isDeepLearning ? '1. Refleksi Mendalam (Mindful & Meaningful Reflection)' : '1. Refleksi & Simpulan Bersama',
+        description: isDeepLearning
+          ? `Peserta didik bersama guru menyimpulkan inti materi "${topicFull}", merefleksikan 'hal paling bermakna apa yang saya pelajari hari ini' dan bagaimana perasaannya selama proses pembelajaran.`
+          : `Peserta didik bersama guru menyimpulkan butir-butir penting materi "${topicFull}" dan merefleksikan pengalaman belajar yang paling berkesan.`,
         durationMinutes: 4,
       },
       {
         id: 'tut-2',
-        phaseName: '2. Umpan Balik & Asesmen Ringkas',
-        description:
-          'Guru memberikan apresiasi kepada seluruh kelompok atas partisipasi aktif dan memberikan kuis lisan singkat sebagai penguatan materi.',
+        phaseName: isDeepLearning ? '2. Apresiasi Positif & Umpan Balik (Joyful Appreciation)' : '2. Umpan Balik & Asesmen Ringkas',
+        description: isDeepLearning
+          ? 'Guru memberikan apresiasi tulus atas usaha dan kolaborasi setiap kelompok, merayakan proses belajar tanpa rasa takut salah, serta memberikan kuis/umpan balik konstruktif.'
+          : 'Guru memberikan apresiasi kepada seluruh kelompok atas partisipasi aktif dan memberikan kuis lisan singkat sebagai penguatan materi.',
         durationMinutes: 4,
       },
       {
@@ -332,6 +469,7 @@ export function generatePedagogicalLessonPlan(options: GenerateOptions): LessonP
         durationMinutes: 2,
       },
     ],
+    pertemuanList: generateMultiMeetingDetails(meetingCount, topicFull, modelPembelajaran, timeAllocation),
     asesmenDiagnostik:
       'Pertanyaan apersepsi lisan di awal pembelajaran untuk memetakan kesiapan belajar siswa.',
     asesmenFormatif:

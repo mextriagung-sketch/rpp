@@ -15,9 +15,16 @@ import {
 import { LessonPlan } from '../types';
 
 export async function exportLessonPlanToDocx(rpp: LessonPlan): Promise<Blob> {
-  const isMerdeka = rpp.curriculum === 'merdeka';
-  const docTitle = isMerdeka ? 'MODUL AJAR (RPP)' : 'RENCANA PELAKSANAAN PEMBELAJARAN (RPP)';
-  const curriculumSubtitle = isMerdeka
+  const isDeepLearning = rpp.curriculum === 'merdeka_deep_learning';
+  const isMerdeka = rpp.curriculum === 'merdeka' || isDeepLearning;
+  const docTitle = isDeepLearning
+    ? 'MODUL AJAR (DEEP LEARNING)'
+    : isMerdeka
+    ? 'MODUL AJAR (RPP)'
+    : 'RENCANA PELAKSANAAN PEMBELAJARAN (RPP)';
+  const curriculumSubtitle = isDeepLearning
+    ? `KURIKULUM MERDEKA - PENDEKATAN DEEP LEARNING (MINDFUL, MEANINGFUL, JOYFUL) ${rpp.fase ? `- ${rpp.fase.toUpperCase()}` : ''}`
+    : isMerdeka
     ? `KURIKULUM MERDEKA - ${rpp.fase ? rpp.fase.toUpperCase() : ''}`
     : 'KURIKULUM 2013 (REVISI)';
 
@@ -90,7 +97,8 @@ export async function exportLessonPlanToDocx(rpp: LessonPlan): Promise<Blob> {
     ['Fase / Kelas / Semester', `${rpp.fase ? `${rpp.fase} / ` : ''}${rpp.grade} / Semester ${rpp.semester}`],
     ['Tahun Ajaran', rpp.academicYear],
     ['Materi Pokok / Topik', rpp.topic + (rpp.subTopic ? ` (${rpp.subTopic})` : '')],
-    ['Alokasi Waktu', rpp.timeAllocation || '2 x 35 Menit'],
+    ['Jumlah Pertemuan', `${rpp.meetingCount || 1} Pertemuan`],
+    ['Alokasi Waktu', `${rpp.timeAllocation || '2 x 35 Menit'}${rpp.meetingCount && rpp.meetingCount > 1 ? ` (Total ${rpp.meetingCount} Pertemuan)` : ''}`],
     ['Model Pembelajaran', rpp.modelPembelajaran || 'Problem Based Learning (PBL)'],
     ['Metode Pembelajaran', rpp.metodePembelajaran || 'Diskusi, Eksperimen, Presentasi'],
     ['Target Peserta Didik', rpp.targetPesertaDidik || 'Peserta Didik Reguler/Tipikal'],
@@ -139,128 +147,290 @@ export async function exportLessonPlanToDocx(rpp: LessonPlan): Promise<Blob> {
     }),
   ];
 
-  // 1. Pendahuluan
-  activityRows.push(
-    new TableRow({
-      children: [
-        new TableCell({
+  if (rpp.pertemuanList && rpp.pertemuanList.length > 0) {
+    // Multi-meeting rendering
+    rpp.pertemuanList.forEach((ptm) => {
+      // Pertemuan Banner
+      activityRows.push(
+        new TableRow({
           children: [
-            new Paragraph({
-              children: [new TextRun({ text: '1. Pendahuluan', bold: true, size: 20 })],
-            }),
-          ],
-        }),
-        new TableCell({
-          children: rpp.kegiatanPendahuluan.map(
-            (step) =>
-              new Paragraph({
-                spacing: { after: 60 },
-                children: [
-                  new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
-                  new TextRun({ text: step.description, size: 20 }),
-                ],
-              }),
-          ),
-        }),
-        new TableCell({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
+            new TableCell({
+              columnSpan: 3,
+              shading: { fill: 'E2E8F0' },
               children: [
-                new TextRun({
-                  text: `${rpp.kegiatanPendahuluan.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
-                  size: 20,
+                new Paragraph({
+                  spacing: { before: 80, after: 80 },
+                  children: [
+                    new TextRun({
+                      text: `PERTEMUAN KE-${ptm.pertemuanKe}${ptm.alokasiWaktu ? ` (${ptm.alokasiWaktu})` : ''}`,
+                      bold: true,
+                      size: 21,
+                    }),
+                    ptm.fokusMateri
+                      ? new TextRun({
+                          text: ` — ${ptm.fokusMateri}`,
+                          italics: true,
+                          size: 19,
+                        })
+                      : new TextRun({ text: '' }),
+                  ],
                 }),
               ],
             }),
           ],
         }),
-      ],
-    }),
-  );
+      );
 
-  // 2. Inti
-  activityRows.push(
-    new TableRow({
-      children: [
-        new TableCell({
+      // 1. Pendahuluan
+      const pend = ptm.kegiatanPendahuluan && ptm.kegiatanPendahuluan.length > 0 ? ptm.kegiatanPendahuluan : rpp.kegiatanPendahuluan;
+      activityRows.push(
+        new TableRow({
           children: [
-            new Paragraph({
+            new TableCell({
               children: [
-                new TextRun({ text: '2. Kegiatan Inti', bold: true, size: 20 }),
-                new TextRun({ text: `\n(${rpp.modelPembelajaran || 'Sintaks Model'})`, italics: true, size: 18 }),
+                new Paragraph({
+                  children: [new TextRun({ text: `1. Pendahuluan (P-${ptm.pertemuanKe})`, bold: true, size: 20 })],
+                }),
               ],
             }),
-          ],
-        }),
-        new TableCell({
-          children: rpp.kegiatanInti.map(
-            (step) =>
-              new Paragraph({
-                spacing: { after: 80 },
-                children: [
-                  new TextRun({ text: `• ${step.phaseName}\n`, bold: true, size: 20 }),
-                  new TextRun({ text: step.description, size: 20 }),
-                ],
-              }),
-          ),
-        }),
-        new TableCell({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
+            new TableCell({
+              children: pend.map(
+                (step) =>
+                  new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                      new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
+                      new TextRun({ text: step.description, size: 20 }),
+                    ],
+                  }),
+              ),
+            }),
+            new TableCell({
               children: [
-                new TextRun({
-                  text: `${rpp.kegiatanInti.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
-                  size: 20,
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: `${pend.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                      size: 20,
+                    }),
+                  ],
                 }),
               ],
             }),
           ],
         }),
-      ],
-    }),
-  );
+      );
 
-  // 3. Penutup
-  activityRows.push(
-    new TableRow({
-      children: [
-        new TableCell({
+      // 2. Inti
+      const inti = ptm.kegiatanInti && ptm.kegiatanInti.length > 0 ? ptm.kegiatanInti : rpp.kegiatanInti;
+      activityRows.push(
+        new TableRow({
           children: [
-            new Paragraph({
-              children: [new TextRun({ text: '3. Penutup', bold: true, size: 20 })],
-            }),
-          ],
-        }),
-        new TableCell({
-          children: rpp.kegiatanPenutup.map(
-            (step) =>
-              new Paragraph({
-                spacing: { after: 60 },
-                children: [
-                  new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
-                  new TextRun({ text: step.description, size: 20 }),
-                ],
-              }),
-          ),
-        }),
-        new TableCell({
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
+            new TableCell({
               children: [
-                new TextRun({
-                  text: `${rpp.kegiatanPenutup.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
-                  size: 20,
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: `2. Kegiatan Inti (P-${ptm.pertemuanKe})`, bold: true, size: 20 }),
+                    new TextRun({ text: `\n(${rpp.modelPembelajaran || 'Sintaks Model'})`, italics: true, size: 18 }),
+                  ],
+                }),
+              ],
+            }),
+            new TableCell({
+              children: inti.map(
+                (step) =>
+                  new Paragraph({
+                    spacing: { after: 80 },
+                    children: [
+                      new TextRun({ text: `• ${step.phaseName}\n`, bold: true, size: 20 }),
+                      new TextRun({ text: step.description, size: 20 }),
+                    ],
+                  }),
+              ),
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: `${inti.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                      size: 20,
+                    }),
+                  ],
                 }),
               ],
             }),
           ],
         }),
-      ],
-    }),
-  );
+      );
+
+      // 3. Penutup
+      const pen = ptm.kegiatanPenutup && ptm.kegiatanPenutup.length > 0 ? ptm.kegiatanPenutup : rpp.kegiatanPenutup;
+      activityRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: `3. Penutup (P-${ptm.pertemuanKe})`, bold: true, size: 20 })],
+                }),
+              ],
+            }),
+            new TableCell({
+              children: pen.map(
+                (step) =>
+                  new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                      new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
+                      new TextRun({ text: step.description, size: 20 }),
+                    ],
+                  }),
+              ),
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({
+                      text: `${pen.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                      size: 20,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+  } else {
+    // 1. Pendahuluan
+    activityRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: '1. Pendahuluan', bold: true, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            children: rpp.kegiatanPendahuluan.map(
+              (step) =>
+                new Paragraph({
+                  spacing: { after: 60 },
+                  children: [
+                    new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
+                    new TextRun({ text: step.description, size: 20 }),
+                  ],
+                }),
+            ),
+          }),
+          new TableCell({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: `${rpp.kegiatanPendahuluan.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                    size: 20,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    // 2. Inti
+    activityRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: '2. Kegiatan Inti', bold: true, size: 20 }),
+                  new TextRun({ text: `\n(${rpp.modelPembelajaran || 'Sintaks Model'})`, italics: true, size: 18 }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            children: rpp.kegiatanInti.map(
+              (step) =>
+                new Paragraph({
+                  spacing: { after: 80 },
+                  children: [
+                    new TextRun({ text: `• ${step.phaseName}\n`, bold: true, size: 20 }),
+                    new TextRun({ text: step.description, size: 20 }),
+                  ],
+                }),
+            ),
+          }),
+          new TableCell({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: `${rpp.kegiatanInti.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                    size: 20,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+
+    // 3. Penutup
+    activityRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [new TextRun({ text: '3. Penutup', bold: true, size: 20 })],
+              }),
+            ],
+          }),
+          new TableCell({
+            children: rpp.kegiatanPenutup.map(
+              (step) =>
+                new Paragraph({
+                  spacing: { after: 60 },
+                  children: [
+                    new TextRun({ text: `• ${step.phaseName}: `, bold: true, size: 20 }),
+                    new TextRun({ text: step.description, size: 20 }),
+                  ],
+                }),
+            ),
+          }),
+          new TableCell({
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [
+                  new TextRun({
+                    text: `${rpp.kegiatanPenutup.reduce((acc, s) => acc + (s.durationMinutes || 0), 0)} Menit`,
+                    size: 20,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
 
   // Rubrik Table
   const rubricRows: TableRow[] = [
@@ -535,6 +705,48 @@ export async function exportLessonPlanToDocx(rpp: LessonPlan): Promise<Blob> {
                         }),
                     )
                   : [new Paragraph({ children: [new TextRun({ text: '-', size: 20 })] })]),
+
+                ...(isDeepLearning || rpp.deepLearningElements
+                  ? [
+                      createSubHeading('F. Tiga Pilar Pendekatan Deep Learning'),
+                      new Paragraph({
+                        spacing: { after: 60 },
+                        children: [
+                          new TextRun({ text: '1. Mindful Learning (Pembelajaran Berkesadaran): ', bold: true, size: 20 }),
+                          new TextRun({
+                            text:
+                              rpp.deepLearningElements?.mindfulLearning ||
+                              'Menghadirkan kesadaran penuh, memusatkan perhatian, menghargai keunikan cara belajar siswa, dan menyimak secara aktif serta penuh empati.',
+                            size: 20,
+                          }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { after: 60 },
+                        children: [
+                          new TextRun({ text: '2. Meaningful Learning (Pembelajaran Bermakna): ', bold: true, size: 20 }),
+                          new TextRun({
+                            text:
+                              rpp.deepLearningElements?.meaningfulLearning ||
+                              'Menghubungkan esensi materi secara kontekstual dengan pengalaman nyata siswa untuk pemecahan masalah otentik dan pemahaman mendalam jangka panjang.',
+                            size: 20,
+                          }),
+                        ],
+                      }),
+                      new Paragraph({
+                        spacing: { after: 120 },
+                        children: [
+                          new TextRun({ text: '3. Joyful Learning (Pembelajaran Menggembirakan): ', bold: true, size: 20 }),
+                          new TextRun({
+                            text:
+                              rpp.deepLearningElements?.joyfulLearning ||
+                              'Membangkitkan rasa ingin tahu yang menyenangkan (curiosity), iklim kelas aman dan suportif tanpa rasa takut salah, serta apresiasi hangat terhadap proses belajar.',
+                            size: 20,
+                          }),
+                        ],
+                      }),
+                    ]
+                  : []),
               ]
             : []),
 

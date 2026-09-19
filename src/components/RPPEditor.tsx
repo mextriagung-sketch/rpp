@@ -19,8 +19,10 @@ import {
   AssessmentRubricItem,
   CurriculumType,
   EducationLevel,
+  PertemuanDetail,
 } from '../types';
 import { exportLessonPlanToDocx, downloadBlob } from '../services/docxExport';
+import { generateMultiMeetingDetails } from '../services/pedagogicalFallback';
 
 interface RPPEditorProps {
   initialPlan: LessonPlan;
@@ -41,12 +43,14 @@ export const RPPEditor: React.FC<RPPEditorProps> = ({
   const [activeTab, setActiveTab] = useState<
     'identity' | 'core' | 'activities' | 'assessment' | 'attachment'
   >('identity');
+  const [activeMeetingIndex, setActiveMeetingIndex] = useState<number>(0);
   const [isExporting, setIsExporting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!isOpen) return null;
 
-  const isMerdeka = plan.curriculum === 'merdeka';
+  const isDeepLearning = plan.curriculum === 'merdeka_deep_learning';
+  const isMerdeka = plan.curriculum === 'merdeka' || isDeepLearning;
 
   const handleIdentityChange = (field: string, val: string) => {
     setPlan((prev) => ({
@@ -56,6 +60,158 @@ export const RPPEditor: React.FC<RPPEditorProps> = ({
         [field]: val,
       },
     }));
+  };
+
+  // Multi-Meeting Helpers
+  const handleUpdateMeetingField = (
+    meetingIdx: number,
+    field: 'fokusMateri' | 'alokasiWaktu',
+    value: string,
+  ) => {
+    setPlan((prev) => {
+      if (!prev.pertemuanList) return prev;
+      const updated = [...prev.pertemuanList];
+      updated[meetingIdx] = { ...updated[meetingIdx], [field]: value };
+      return { ...prev, pertemuanList: updated };
+    });
+  };
+
+  const handleUpdateMeetingStep = (
+    meetingIdx: number,
+    section: 'kegiatanPendahuluan' | 'kegiatanInti' | 'kegiatanPenutup',
+    stepIdx: number,
+    field: keyof ActivityStep,
+    value: string | number,
+  ) => {
+    setPlan((prev) => {
+      if (!prev.pertemuanList) return prev;
+      const updatedMeetings = [...prev.pertemuanList];
+      const targetMeeting = { ...updatedMeetings[meetingIdx] };
+      const steps = [...(targetMeeting[section] || [])];
+      steps[stepIdx] = { ...steps[stepIdx], [field]: value };
+      targetMeeting[section] = steps;
+      updatedMeetings[meetingIdx] = targetMeeting;
+      return { ...prev, pertemuanList: updatedMeetings };
+    });
+  };
+
+  const handleAddMeetingStep = (
+    meetingIdx: number,
+    section: 'kegiatanPendahuluan' | 'kegiatanInti' | 'kegiatanPenutup',
+  ) => {
+    setPlan((prev) => {
+      if (!prev.pertemuanList) return prev;
+      const updatedMeetings = [...prev.pertemuanList];
+      const targetMeeting = { ...updatedMeetings[meetingIdx] };
+      const steps = [...(targetMeeting[section] || [])];
+      steps.push({
+        id: `p${meetingIdx + 1}-step-${Date.now()}`,
+        phaseName: section === 'kegiatanInti' ? 'Langkah Inti Baru' : 'Apersepsi / Refleksi',
+        description: '',
+        durationMinutes: 10,
+      });
+      targetMeeting[section] = steps;
+      updatedMeetings[meetingIdx] = targetMeeting;
+      return { ...prev, pertemuanList: updatedMeetings };
+    });
+  };
+
+  const handleRemoveMeetingStep = (
+    meetingIdx: number,
+    section: 'kegiatanPendahuluan' | 'kegiatanInti' | 'kegiatanPenutup',
+    stepIdx: number,
+  ) => {
+    setPlan((prev) => {
+      if (!prev.pertemuanList) return prev;
+      const updatedMeetings = [...prev.pertemuanList];
+      const targetMeeting = { ...updatedMeetings[meetingIdx] };
+      targetMeeting[section] = (targetMeeting[section] || []).filter((_, i) => i !== stepIdx);
+      updatedMeetings[meetingIdx] = targetMeeting;
+      return { ...prev, pertemuanList: updatedMeetings };
+    });
+  };
+
+  const handleAddMeeting = () => {
+    setPlan((prev) => {
+      const currentList = prev.pertemuanList || [];
+      const newMeetingNumber = currentList.length + 1;
+      const newMeeting: PertemuanDetail = {
+        pertemuanKe: newMeetingNumber,
+        fokusMateri: `Pertemuan ${newMeetingNumber}: Pendalaman dan Aplikasi Konsep ${prev.topic}`,
+        alokasiWaktu: '2 x 35 Menit',
+        kegiatanPendahuluan: [
+          {
+            id: `p${newMeetingNumber}-pen-0`,
+            phaseName: 'Apersepsi & Pengondisian Kelas',
+            description: `Guru mengawali pertemuan ${newMeetingNumber} dengan mereviu pemahaman sesi sebelumnya dan menyampaikan target hari ini.`,
+            durationMinutes: 10,
+          },
+        ],
+        kegiatanInti: [
+          {
+            id: `p${newMeetingNumber}-inti-0`,
+            phaseName: 'Eksplorasi & Kolaborasi Kelompok',
+            description: `Peserta didik berdiskusi dan melaksanakan kegiatan pemecahan masalah / tugas LKPD secara aktif.`,
+            durationMinutes: 25,
+          },
+          {
+            id: `p${newMeetingNumber}-inti-1`,
+            phaseName: 'Penyajian & Penguatan Materi',
+            description: `Peserta didik menyajikan hasil diskusi; guru memberikan umpan balik dan penguatan konsep.`,
+            durationMinutes: 20,
+          },
+        ],
+        kegiatanPenutup: [
+          {
+            id: `p${newMeetingNumber}-penut-0`,
+            phaseName: 'Refleksi & Rangkuman Bersama',
+            description: `Peserta didik menyimpulkan poin penting yang dipelajari pada pertemuan ${newMeetingNumber}.`,
+            durationMinutes: 15,
+          },
+        ],
+      };
+      const updatedList = [...currentList, newMeeting];
+      return {
+        ...prev,
+        meetingCount: updatedList.length,
+        pertemuanList: updatedList,
+      };
+    });
+    setActiveMeetingIndex(plan.pertemuanList ? plan.pertemuanList.length : 0);
+  };
+
+  const handleRemoveMeeting = (meetingIdx: number) => {
+    setPlan((prev) => {
+      if (!prev.pertemuanList || prev.pertemuanList.length <= 1) return prev;
+      const filtered = prev.pertemuanList
+        .filter((_, i) => i !== meetingIdx)
+        .map((m, idx) => ({
+          ...m,
+          pertemuanKe: idx + 1,
+        }));
+      return {
+        ...prev,
+        meetingCount: filtered.length,
+        pertemuanList: filtered,
+      };
+    });
+    setActiveMeetingIndex((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleConvertToMultiMeeting = (count: number) => {
+    const topicLabel = plan.topic + (plan.subTopic ? ` (${plan.subTopic})` : '');
+    const list = generateMultiMeetingDetails(
+      count,
+      topicLabel,
+      plan.modelPembelajaran || 'PBL',
+      plan.timeAllocation || '2 x 35 Menit',
+    );
+    setPlan((prev) => ({
+      ...prev,
+      meetingCount: count,
+      pertemuanList: list,
+    }));
+    setActiveMeetingIndex(0);
   };
 
   // Add / Remove Learning Objectives
@@ -418,13 +574,33 @@ export const RPPEditor: React.FC<RPPEditorProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Jumlah Pertemuan
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={plan.meetingCount || plan.pertemuanList?.length || 1}
+                      onChange={(e) => {
+                        const count = Math.max(1, parseInt(e.target.value) || 1);
+                        setPlan((prev) => ({ ...prev, meetingCount: count }));
+                      }}
+                      className="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 font-semibold"
+                    />
+                    <span className="text-xs text-slate-500 whitespace-nowrap">Pertemuan</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Alokasi Waktu
                   </label>
                   <input
                     type="text"
                     value={plan.timeAllocation}
                     onChange={(e) => setPlan({ ...plan, timeAllocation: e.target.value })}
-                    placeholder="Contoh: 2 x 35 Menit"
+                    placeholder="Contoh: 4 JP / 2 Pertemuan (2 x 35 Menit)"
                     className="w-full text-xs sm:text-sm border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
@@ -627,205 +803,630 @@ export const RPPEditor: React.FC<RPPEditorProps> = ({
           {/* TAB 3: LANGKAH PEMBELAJARAN */}
           {activeTab === 'activities' && (
             <div className="space-y-6 max-w-4xl">
-              {/* Pendahuluan */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    1. Kegiatan Pendahuluan
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => handleAddStep('kegiatanPendahuluan')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Langkah</span>
-                  </button>
+              {/* Multi-Meeting Controls & Header */}
+              {plan.pertemuanList && plan.pertemuanList.length > 0 ? (
+                <div className="border border-blue-200 bg-blue-50/40 rounded-xl p-3.5 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Alokasi Terstruktur ({plan.pertemuanList.length} Pertemuan)
+                        </h3>
+                        <p className="text-[11px] text-slate-500">
+                          Setiap pertemuan memiliki fokus materi, alokasi waktu, serta sintaks pendahuluan, inti, dan penutup tersendiri.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddMeeting}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Pertemuan</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Meeting Tabs Selector */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-t border-blue-100 pt-2">
+                    {plan.pertemuanList.map((meeting, mIdx) => {
+                      const isActive = activeMeetingIndex === mIdx;
+                      return (
+                        <button
+                          key={meeting.pertemuanKe || mIdx}
+                          type="button"
+                          onClick={() => setActiveMeetingIndex(mIdx)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 transition-all ${
+                            isActive
+                              ? 'bg-blue-600 text-white shadow-xs'
+                              : 'bg-white text-slate-700 hover:bg-blue-100 border border-slate-200'
+                          }`}
+                        >
+                          Pertemuan {meeting.pertemuanKe || mIdx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="space-y-2.5">
-                  {plan.kegiatanPendahuluan.map((step, idx) => (
-                    <div key={step.id || idx} className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
-                      <div className="w-1/4">
-                        <input
-                          type="text"
-                          value={step.phaseName}
-                          onChange={(e) =>
-                            handleUpdateStep('kegiatanPendahuluan', idx, 'phaseName', e.target.value)
-                          }
-                          placeholder="Fase / Nama Tahap"
-                          className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-blue-900"
-                        />
-                        <div className="mt-1 flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={step.durationMinutes}
+              ) : (
+                /* Prompt to split into multi-meetings */
+                <div className="p-3.5 bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div>
+                    <h4 className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Ingin Alokasi Lebih Banyak Pertemuan?</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      Pecah alokasi waktu dan langkah pembelajaran modul ini menjadi beberapa sesi pertemuan secara otomatis.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                    {[2, 3, 4, 5, 6].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => handleConvertToMultiMeeting(num)}
+                        className="px-2.5 py-1 bg-white hover:bg-blue-600 hover:text-white border border-blue-300 text-blue-800 rounded-md text-xs font-semibold shadow-2xs transition-all"
+                      >
+                        {num} Pertemuan
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* RENDER ACTIVE MEETING OR SINGLE MEETING */}
+              {plan.pertemuanList && plan.pertemuanList.length > 0 ? (
+                (() => {
+                  const currentMIdx = Math.min(activeMeetingIndex, plan.pertemuanList.length - 1);
+                  const currMeeting = plan.pertemuanList[currentMIdx];
+                  if (!currMeeting) return null;
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Meeting Header Details (Fokus Materi & Alokasi Waktu) */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-extrabold text-blue-800 uppercase tracking-wider bg-blue-100 px-2.5 py-0.5 rounded-full">
+                            Pengaturan Pertemuan {currMeeting.pertemuanKe || currentMIdx + 1}
+                          </span>
+                          {plan.pertemuanList.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMeeting(currentMIdx)}
+                              className="inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Hapus Pertemuan Ini</span>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Fokus Materi / Topik Pertemuan Ini
+                            </label>
+                            <input
+                              type="text"
+                              value={currMeeting.fokusMateri}
+                              onChange={(e) =>
+                                handleUpdateMeetingField(currentMIdx, 'fokusMateri', e.target.value)
+                              }
+                              placeholder="Contoh: Identifikasi Masalah & Eksplorasi Konsep..."
+                              className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-700 mb-1">
+                              Alokasi Waktu Sesi Ini
+                            </label>
+                            <input
+                              type="text"
+                              value={currMeeting.alokasiWaktu}
+                              onChange={(e) =>
+                                handleUpdateMeetingField(currentMIdx, 'alokasiWaktu', e.target.value)
+                              }
+                              placeholder="Contoh: 2 x 35 Menit"
+                              className="w-full text-xs font-medium border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 1. Pendahuluan Pertemuan Ini */}
+                      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                            1. Kegiatan Pendahuluan (Pertemuan {currMeeting.pertemuanKe})
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => handleAddMeetingStep(currentMIdx, 'kegiatanPendahuluan')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Langkah</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2.5">
+                          {currMeeting.kegiatanPendahuluan?.map((step, idx) => (
+                            <div
+                              key={step.id || idx}
+                              className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                            >
+                              <div className="w-1/4">
+                                <input
+                                  type="text"
+                                  value={step.phaseName}
+                                  onChange={(e) =>
+                                    handleUpdateMeetingStep(
+                                      currentMIdx,
+                                      'kegiatanPendahuluan',
+                                      idx,
+                                      'phaseName',
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Fase / Tahap"
+                                  className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-blue-900"
+                                />
+                                <div className="mt-1 flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={step.durationMinutes}
+                                    onChange={(e) =>
+                                      handleUpdateMeetingStep(
+                                        currentMIdx,
+                                        'kegiatanPendahuluan',
+                                        idx,
+                                        'durationMinutes',
+                                        parseInt(e.target.value) || 0,
+                                      )
+                                    }
+                                    className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                                  />
+                                  <span className="text-[11px] text-slate-500">menit</span>
+                                </div>
+                              </div>
+                              <textarea
+                                value={step.description}
+                                onChange={(e) =>
+                                  handleUpdateMeetingStep(
+                                    currentMIdx,
+                                    'kegiatanPendahuluan',
+                                    idx,
+                                    'description',
+                                    e.target.value,
+                                  )
+                                }
+                                rows={2}
+                                placeholder="Deskripsi aktivitas pendahuluan guru dan siswa..."
+                                className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveMeetingStep(currentMIdx, 'kegiatanPendahuluan', idx)
+                                }
+                                className="p-1.5 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 2. Kegiatan Inti Pertemuan Ini */}
+                      <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                              2. Kegiatan Inti (Pertemuan {currMeeting.pertemuanKe})
+                            </h3>
+                            <p className="text-[11px] text-slate-500">
+                              Sintaks Model: {plan.modelPembelajaran || 'Problem Based Learning'}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddMeetingStep(currentMIdx, 'kegiatanInti')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Sintaks Inti</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2.5">
+                          {currMeeting.kegiatanInti?.map((step, idx) => (
+                            <div
+                              key={step.id || idx}
+                              className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                            >
+                              <div className="w-1/3">
+                                <input
+                                  type="text"
+                                  value={step.phaseName}
+                                  onChange={(e) =>
+                                    handleUpdateMeetingStep(
+                                      currentMIdx,
+                                      'kegiatanInti',
+                                      idx,
+                                      'phaseName',
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Sintaks / Langkah"
+                                  className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
+                                />
+                                <div className="mt-1 flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={step.durationMinutes}
+                                    onChange={(e) =>
+                                      handleUpdateMeetingStep(
+                                        currentMIdx,
+                                        'kegiatanInti',
+                                        idx,
+                                        'durationMinutes',
+                                        parseInt(e.target.value) || 0,
+                                      )
+                                    }
+                                    className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                                  />
+                                  <span className="text-[11px] text-slate-500">menit</span>
+                                </div>
+                              </div>
+                              <textarea
+                                value={step.description}
+                                onChange={(e) =>
+                                  handleUpdateMeetingStep(
+                                    currentMIdx,
+                                    'kegiatanInti',
+                                    idx,
+                                    'description',
+                                    e.target.value,
+                                  )
+                                }
+                                rows={3}
+                                placeholder="Deskripsi aktivitas langkah kegiatan inti..."
+                                className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveMeetingStep(currentMIdx, 'kegiatanInti', idx)
+                                }
+                                className="p-1.5 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. Kegiatan Penutup Pertemuan Ini */}
+                      <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                            3. Kegiatan Penutup (Pertemuan {currMeeting.pertemuanKe})
+                          </h3>
+                          <button
+                            type="button"
+                            onClick={() => handleAddMeetingStep(currentMIdx, 'kegiatanPenutup')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Langkah Penutup</span>
+                          </button>
+                        </div>
+                        <div className="space-y-2.5">
+                          {currMeeting.kegiatanPenutup?.map((step, idx) => (
+                            <div
+                              key={step.id || idx}
+                              className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                            >
+                              <div className="w-1/4">
+                                <input
+                                  type="text"
+                                  value={step.phaseName}
+                                  onChange={(e) =>
+                                    handleUpdateMeetingStep(
+                                      currentMIdx,
+                                      'kegiatanPenutup',
+                                      idx,
+                                      'phaseName',
+                                      e.target.value,
+                                    )
+                                  }
+                                  placeholder="Fase Penutup"
+                                  className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
+                                />
+                                <div className="mt-1 flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    value={step.durationMinutes}
+                                    onChange={(e) =>
+                                      handleUpdateMeetingStep(
+                                        currentMIdx,
+                                        'kegiatanPenutup',
+                                        idx,
+                                        'durationMinutes',
+                                        parseInt(e.target.value) || 0,
+                                      )
+                                    }
+                                    className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                                  />
+                                  <span className="text-[11px] text-slate-500">menit</span>
+                                </div>
+                              </div>
+                              <textarea
+                                value={step.description}
+                                onChange={(e) =>
+                                  handleUpdateMeetingStep(
+                                    currentMIdx,
+                                    'kegiatanPenutup',
+                                    idx,
+                                    'description',
+                                    e.target.value,
+                                  )
+                                }
+                                rows={2}
+                                placeholder="Deskripsi refleksi, apresiasi, dan tindak lanjut..."
+                                className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleRemoveMeetingStep(currentMIdx, 'kegiatanPenutup', idx)
+                                }
+                                className="p-1.5 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                /* SINGLE MEETING VIEW (Default fallback) */
+                <>
+                  {/* Pendahuluan */}
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        1. Kegiatan Pendahuluan
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => handleAddStep('kegiatanPendahuluan')}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Langkah</span>
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {plan.kegiatanPendahuluan.map((step, idx) => (
+                        <div
+                          key={step.id || idx}
+                          className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                        >
+                          <div className="w-1/4">
+                            <input
+                              type="text"
+                              value={step.phaseName}
+                              onChange={(e) =>
+                                handleUpdateStep(
+                                  'kegiatanPendahuluan',
+                                  idx,
+                                  'phaseName',
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Fase / Nama Tahap"
+                              className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-blue-900"
+                            />
+                            <div className="mt-1 flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={step.durationMinutes}
+                                onChange={(e) =>
+                                  handleUpdateStep(
+                                    'kegiatanPendahuluan',
+                                    idx,
+                                    'durationMinutes',
+                                    parseInt(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                              />
+                              <span className="text-[11px] text-slate-500">menit</span>
+                            </div>
+                          </div>
+                          <textarea
+                            value={step.description}
                             onChange={(e) =>
                               handleUpdateStep(
                                 'kegiatanPendahuluan',
                                 idx,
-                                'durationMinutes',
-                                parseInt(e.target.value) || 0,
+                                'description',
+                                e.target.value,
                               )
                             }
-                            className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                            rows={2}
+                            placeholder="Deskripsi aktivitas guru dan peserta didik..."
+                            className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
                           />
-                          <span className="text-[11px] text-slate-500">menit</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStep('kegiatanPendahuluan', idx)}
+                            className="p-1.5 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      </div>
-                      <textarea
-                        value={step.description}
-                        onChange={(e) =>
-                          handleUpdateStep('kegiatanPendahuluan', idx, 'description', e.target.value)
-                        }
-                        rows={2}
-                        placeholder="Deskripsi aktivitas guru dan peserta didik..."
-                        className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveStep('kegiatanPendahuluan', idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Kegiatan Inti */}
-              <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/20">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
-                      2. Kegiatan Inti (Sintaks Model: {plan.modelPembelajaran || 'PBL'})
-                    </h3>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleAddStep('kegiatanInti')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Sintaks Inti</span>
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {plan.kegiatanInti.map((step, idx) => (
-                    <div key={step.id || idx} className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
-                      <div className="w-1/3">
-                        <input
-                          type="text"
-                          value={step.phaseName}
-                          onChange={(e) =>
-                            handleUpdateStep('kegiatanInti', idx, 'phaseName', e.target.value)
-                          }
-                          placeholder="Sintaks / Langkah"
-                          className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
-                        />
-                        <div className="mt-1 flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={step.durationMinutes}
-                            onChange={(e) =>
-                              handleUpdateStep(
-                                'kegiatanInti',
-                                idx,
-                                'durationMinutes',
-                                parseInt(e.target.value) || 0,
-                              )
-                            }
-                            className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
-                          />
-                          <span className="text-[11px] text-slate-500">menit</span>
-                        </div>
+
+                  {/* Kegiatan Inti */}
+                  <div className="border border-blue-200 rounded-xl p-4 bg-blue-50/20">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                          2. Kegiatan Inti (Sintaks Model: {plan.modelPembelajaran || 'PBL'})
+                        </h3>
                       </div>
-                      <textarea
-                        value={step.description}
-                        onChange={(e) =>
-                          handleUpdateStep('kegiatanInti', idx, 'description', e.target.value)
-                        }
-                        rows={3}
-                        placeholder="Deskripsi langkah kegiatan inti..."
-                        className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
-                      />
                       <button
                         type="button"
-                        onClick={() => handleRemoveStep('kegiatanInti', idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-600"
+                        onClick={() => handleAddStep('kegiatanInti')}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Sintaks Inti</span>
                       </button>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="space-y-2.5">
+                      {plan.kegiatanInti.map((step, idx) => (
+                        <div
+                          key={step.id || idx}
+                          className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                        >
+                          <div className="w-1/3">
+                            <input
+                              type="text"
+                              value={step.phaseName}
+                              onChange={(e) =>
+                                handleUpdateStep('kegiatanInti', idx, 'phaseName', e.target.value)
+                              }
+                              placeholder="Sintaks / Langkah"
+                              className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
+                            />
+                            <div className="mt-1 flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={step.durationMinutes}
+                                onChange={(e) =>
+                                  handleUpdateStep(
+                                    'kegiatanInti',
+                                    idx,
+                                    'durationMinutes',
+                                    parseInt(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                              />
+                              <span className="text-[11px] text-slate-500">menit</span>
+                            </div>
+                          </div>
+                          <textarea
+                            value={step.description}
+                            onChange={(e) =>
+                              handleUpdateStep('kegiatanInti', idx, 'description', e.target.value)
+                            }
+                            rows={3}
+                            placeholder="Deskripsi langkah kegiatan inti..."
+                            className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStep('kegiatanInti', idx)}
+                            className="p-1.5 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Kegiatan Penutup */}
-              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    3. Kegiatan Penutup
-                  </h3>
-                  <button
-                    type="button"
-                    onClick={() => handleAddStep('kegiatanPenutup')}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Tambah Langkah</span>
-                  </button>
-                </div>
-                <div className="space-y-2.5">
-                  {plan.kegiatanPenutup.map((step, idx) => (
-                    <div key={step.id || idx} className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
-                      <div className="w-1/4">
-                        <input
-                          type="text"
-                          value={step.phaseName}
-                          onChange={(e) =>
-                            handleUpdateStep('kegiatanPenutup', idx, 'phaseName', e.target.value)
-                          }
-                          placeholder="Fase Penutup"
-                          className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
-                        />
-                        <div className="mt-1 flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={step.durationMinutes}
+                  {/* Kegiatan Penutup */}
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                        3. Kegiatan Penutup
+                      </h3>
+                      <button
+                        type="button"
+                        onClick={() => handleAddStep('kegiatanPenutup')}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah Langkah</span>
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {plan.kegiatanPenutup.map((step, idx) => (
+                        <div
+                          key={step.id || idx}
+                          className="flex items-start gap-2 bg-white p-2.5 rounded-lg border border-slate-200"
+                        >
+                          <div className="w-1/4">
+                            <input
+                              type="text"
+                              value={step.phaseName}
+                              onChange={(e) =>
+                                handleUpdateStep('kegiatanPenutup', idx, 'phaseName', e.target.value)
+                              }
+                              placeholder="Fase Penutup"
+                              className="w-full text-xs font-bold border border-slate-200 rounded p-1.5 text-slate-800"
+                            />
+                            <div className="mt-1 flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={step.durationMinutes}
+                                onChange={(e) =>
+                                  handleUpdateStep(
+                                    'kegiatanPenutup',
+                                    idx,
+                                    'durationMinutes',
+                                    parseInt(e.target.value) || 0,
+                                  )
+                                }
+                                className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                              />
+                              <span className="text-[11px] text-slate-500">menit</span>
+                            </div>
+                          </div>
+                          <textarea
+                            value={step.description}
                             onChange={(e) =>
                               handleUpdateStep(
                                 'kegiatanPenutup',
                                 idx,
-                                'durationMinutes',
-                                parseInt(e.target.value) || 0,
+                                'description',
+                                e.target.value,
                               )
                             }
-                            className="w-14 text-xs border border-slate-200 rounded p-1 text-center"
+                            rows={2}
+                            placeholder="Deskripsi refleksi dan tindak lanjut..."
+                            className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
                           />
-                          <span className="text-[11px] text-slate-500">menit</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStep('kegiatanPenutup', idx)}
+                            className="p-1.5 text-slate-400 hover:text-red-600"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      </div>
-                      <textarea
-                        value={step.description}
-                        onChange={(e) =>
-                          handleUpdateStep('kegiatanPenutup', idx, 'description', e.target.value)
-                        }
-                        rows={2}
-                        placeholder="Deskripsi refleksi dan tindak lanjut..."
-                        className="flex-1 text-xs border border-slate-200 rounded p-2 focus:ring-1 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveStep('kegiatanPenutup', idx)}
-                        className="p-1.5 text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

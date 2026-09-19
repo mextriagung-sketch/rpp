@@ -55,7 +55,8 @@ export const RPPCard: React.FC<RPPCardProps> = ({
     }
   };
 
-  const isMerdeka = plan.curriculum === 'merdeka';
+  const isDeepLearning = plan.curriculum === 'merdeka_deep_learning';
+  const isMerdeka = plan.curriculum === 'merdeka' || isDeepLearning;
 
   return (
     <div className="group bg-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden">
@@ -63,15 +64,20 @@ export const RPPCard: React.FC<RPPCardProps> = ({
       <div className="p-5 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
           <div className="flex items-center gap-2">
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold ${
-                isMerdeka
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
-                  : 'bg-indigo-50 text-indigo-800 border border-indigo-200/80'
-              }`}
-            >
-              {isMerdeka ? 'Kurikulum Merdeka' : 'Kurikulum 2013'}
-            </span>
+            {isDeepLearning ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-teal-50 text-teal-800 border border-teal-200/80">
+                <Sparkles className="w-3 h-3 text-teal-600" />
+                Merdeka (Deep Learning)
+              </span>
+            ) : isMerdeka ? (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                Kurikulum Merdeka
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80">
+                Kurikulum 2013
+              </span>
+            )}
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
               {plan.level} • {plan.grade}
             </span>

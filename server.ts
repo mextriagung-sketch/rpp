@@ -110,6 +110,7 @@ app.post('/api/generate-rpp', async (req, res) => {
     topic = 'Ekosistem',
     subTopic = '',
     timeAllocation = '2 x 35 Menit',
+    meetingCount = 1,
     modelPembelajaran = 'Problem Based Learning (PBL)',
     specialInstructions = '',
     semester = 'Ganjil',
@@ -120,6 +121,8 @@ app.post('/api/generate-rpp', async (req, res) => {
     city = schoolIdentity?.city || 'Jakarta',
     forceFallback = false,
   } = req.body;
+
+  const resolvedMeetingCount = Math.max(1, Number(meetingCount) || 1);
 
   // Fully resolve SchoolIdentity with priority on incoming user customized data
   const resolvedSchoolIdentity = {
@@ -148,6 +151,7 @@ app.post('/api/generate-rpp', async (req, res) => {
       topic,
       subTopic,
       timeAllocation,
+      meetingCount: resolvedMeetingCount,
       modelPembelajaran,
       specialInstructions,
       semester,
@@ -173,6 +177,7 @@ app.post('/api/generate-rpp', async (req, res) => {
       topic,
       subTopic,
       timeAllocation,
+      meetingCount: resolvedMeetingCount,
       modelPembelajaran,
       specialInstructions,
       semester,
@@ -192,19 +197,28 @@ app.post('/api/generate-rpp', async (req, res) => {
 Tugas Anda adalah merancang dokumen Rencana Pelaksanaan Pembelajaran (RPP) / Modul Ajar yang lengkap, mendalam, pedagogis, berbasis diferensiasi, dan siap digunakan guru di kelas nyata sesuai standar kurikulum Indonesia.
 
 Aturan Pembuatan:
-1. Jika Kurikulum Merdeka:
+1. Jika Kurikulum Merdeka (Standar atau Deep Learning):
    - Gunakan istilah Modul Ajar, Fase sesuai kelas (Fase A: Kls 1-2, Fase B: Kls 3-4, Fase C: Kls 5-6, Fase D: Kls 7-9, Fase E: Kls 10, Fase F: Kls 11-12).
    - Tuliskan Capaian Pembelajaran (CP) yang komprehensif.
    - Cantumkan minimal 3 Tujuan Pembelajaran bergradasi taksonomi Bloom (C1-C4/C6) dengan formula ABCD (Audience, Behavior, Condition, Degree).
    - Pilih dimensi Profil Pelajar Pancasila yang relevan beserta deskripsi singkatnya.
    - Sediakan Pemahaman Bermakna (konseptual & kontekstual) serta minimal 3 Pertanyaan Pemantik yang memicu nalar kritis.
    - Langkah Kegiatan Inti WAJIB mengikuti sintaks model pembelajaran terpilih (misal: jika PBL: 1. Orientasi masalah, 2. Organisasi belajar, 3. Penyelidikan, 4. Penyajian karya, 5. Evaluasi proses).
-2. Jika Kurikulum 2013 (K13):
+2. Jika Kurikulum Merdeka (Deep Learning):
+   - Terapkan 3 Pilar Deep Learning Kemendikdasmen (Mindful Learning, Meaningful Learning, Joyful Learning).
+   - Mindful Learning: Mengembangkan kesadaran penuh, mendengarkan aktif, menghargai keunikan siswa, dan latihan pemusatan perhatian/kehadiran utuh.
+   - Meaningful Learning: Menghubungkan konsep secara mendalam dengan realitas kehidupan siswa dan pemecahan masalah otentik, bukan sekadar hafalan.
+   - Joyful Learning: Pembelajaran yang menggembirakan, membangkitkan rasa ingin tahu (curiosity), penuh antusiasme, aman secara emosional, dan merayakan proses belajar.
+   - Wajib isi properti 'deepLearningElements' { mindfulLearning, meaningfulLearning, joyfulLearning } serta cantumkan sentuhan Mindful, Meaningful, dan Joyful dalam langkah-langkah kegiatan.
+3. Jika Kurikulum 2013 (K13):
    - Gunakan KI 1 (Spiritual), KI 2 (Sosial), KI 3 (Pengetahuan), KI 4 (Keterampilan).
    - Cantumkan Kompetensi Dasar (KD) dan Indikator Pencapaian Kompetensi (IPK).
    - Pendekatan Saintifik (5M: Mengamati, Menanya, Mengumpulkan informasi, Menalar/Mengasosiasi, Mengomunikasikan).
-3. Selalu sertakan:
-   - Estimasi menit pada setiap langkah kegiatan (Pendahuluan, Inti, Penutup).
+4. Ketentuan Alokasi Pertemuan (${resolvedMeetingCount} Pertemuan):
+   - Jika jumlah pertemuan > 1, sediakan array pertemuanList berisi rincian Pertemuan 1 s.d ${resolvedMeetingCount}.
+   - Setiap pertemuan memiliki fokus materi bertahap (progresif), kegiatan pendahuluan, kegiatan inti sesuai tahapan sintaks, dan penutup.
+   - Cantumkan estimasi menit di setiap langkah.
+5. Selalu sertakan:
    - Asesmen Diagnostik, Formatif, dan Sumatif.
    - Rubrik penilaian dengan 4 skala kriteria yang jelas (Perlu Bimbingan, Cukup/Berkembang, Baik/Cakap, Sangat Baik/Mahir).
    - LKPD (Lembar Kerja Peserta Didik) yang kontekstual, menarik, dan menantang.
@@ -213,19 +227,22 @@ Aturan Pembuatan:
 Pastikan output berupa format JSON yang valid.`;
 
     const userPrompt = `Buatkan RPP / Modul Ajar lengkap dengan spesifikasi:
-- Kurikulum: ${curriculum === 'merdeka' ? 'Kurikulum Merdeka (Modul Ajar)' : curriculum === 'k13' ? 'Kurikulum 2013 Revisi' : 'Kurikulum Kustom'}
+- Kurikulum: ${curriculum === 'merdeka_deep_learning' ? 'Kurikulum Merdeka dengan Pendekatan Deep Learning (Mindful, Meaningful, Joyful Learning)' : curriculum === 'merdeka' ? 'Kurikulum Merdeka (Modul Ajar Standar)' : curriculum === 'k13' ? 'Kurikulum 2013 Revisi' : 'Kurikulum Kustom'}
 - Jenjang: ${level}
 - Kelas: ${grade}
 - Mata Pelajaran: ${subject}
 - Topik / Materi: ${topic} ${subTopic ? `(Sub-topik: ${subTopic})` : ''}
 - Semester: ${semester}
 - Tahun Pelajaran: ${academicYear}
-- Alokasi Waktu: ${timeAllocation}
+- Jumlah Pertemuan: ${resolvedMeetingCount} Pertemuan
+- Total Alokasi Waktu: ${timeAllocation}
 - Model Pembelajaran: ${modelPembelajaran}
 - Satuan Pendidikan: ${resolvedSchoolIdentity.schoolName}
 - Nama Guru / Penyusun: ${resolvedSchoolIdentity.teacherName} (NIP: ${resolvedSchoolIdentity.teacherNip})
 - Kepala Sekolah: ${resolvedSchoolIdentity.principalName} (NIP: ${resolvedSchoolIdentity.principalNip})
 - Kota: ${resolvedSchoolIdentity.city}
+${resolvedMeetingCount > 1 ? `- PENTING: Distribusikan aktivitas pembelajaran secara terperinci ke dalam ${resolvedMeetingCount} pertemuan pada properti 'pertemuanList'.` : ''}
+${curriculum === 'merdeka_deep_learning' ? '- PENTING DEEP LEARNING: Sediakan analisis mendalam untuk properti deepLearningElements (mindfulLearning, meaningfulLearning, joyfulLearning) serta integrasikan ke kegiatan pembelajaran!' : ''}
 ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
 
     const schema = {
@@ -254,6 +271,14 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
         pertanyaanPemantik: {
           type: Type.ARRAY,
           items: { type: Type.STRING },
+        },
+        deepLearningElements: {
+          type: Type.OBJECT,
+          properties: {
+            mindfulLearning: { type: Type.STRING },
+            meaningfulLearning: { type: Type.STRING },
+            joyfulLearning: { type: Type.STRING },
+          },
         },
         kompetensiInti: {
           type: Type.OBJECT,
@@ -306,6 +331,55 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
               durationMinutes: { type: Type.INTEGER },
             },
             required: ['phaseName', 'description', 'durationMinutes'],
+          },
+        },
+        meetingCount: { type: Type.INTEGER },
+        pertemuanList: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              pertemuanKe: { type: Type.INTEGER },
+              fokusMateri: { type: Type.STRING },
+              alokasiWaktu: { type: Type.STRING },
+              kegiatanPendahuluan: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    phaseName: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    durationMinutes: { type: Type.INTEGER },
+                  },
+                  required: ['phaseName', 'description', 'durationMinutes'],
+                },
+              },
+              kegiatanInti: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    phaseName: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    durationMinutes: { type: Type.INTEGER },
+                  },
+                  required: ['phaseName', 'description', 'durationMinutes'],
+                },
+              },
+              kegiatanPenutup: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    phaseName: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    durationMinutes: { type: Type.INTEGER },
+                  },
+                  required: ['phaseName', 'description', 'durationMinutes'],
+                },
+              },
+            },
+            required: ['pertemuanKe', 'kegiatanPendahuluan', 'kegiatanInti', 'kegiatanPenutup'],
           },
         },
         asesmenDiagnostik: { type: Type.STRING },
@@ -381,6 +455,7 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
         topic,
         subTopic,
         timeAllocation,
+        meetingCount: resolvedMeetingCount,
         modelPembelajaran,
         specialInstructions,
         semester,
@@ -404,6 +479,54 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
     }
 
     const parsedData = JSON.parse(cleanJson);
+    const parsedMeetingCount = Math.max(1, Number(parsedData.meetingCount) || resolvedMeetingCount);
+
+    // Parse or synthesize multi-meeting list
+    let mappedPertemuanList = Array.isArray(parsedData.pertemuanList) && parsedData.pertemuanList.length > 0
+      ? parsedData.pertemuanList.map((p: any, idx: number) => ({
+          pertemuanKe: Number(p.pertemuanKe) || idx + 1,
+          fokusMateri: p.fokusMateri || `Pertemuan ${idx + 1}: Pendalaman Materi ${topic}`,
+          alokasiWaktu: p.alokasiWaktu || (parsedMeetingCount > 1 ? `${timeAllocation} (Pertemuan ke-${idx + 1})` : timeAllocation),
+          kegiatanPendahuluan: (p.kegiatanPendahuluan || []).map((k: any, kidx: number) => ({
+            id: `p${idx + 1}-pen-${kidx}`,
+            phaseName: k.phaseName || 'Apersepsi',
+            description: k.description || '',
+            durationMinutes: Number(k.durationMinutes) || 10,
+          })),
+          kegiatanInti: (p.kegiatanInti || []).map((k: any, kidx: number) => ({
+            id: `p${idx + 1}-inti-${kidx}`,
+            phaseName: k.phaseName || `Langkah ${kidx + 1}`,
+            description: k.description || '',
+            durationMinutes: Number(k.durationMinutes) || 15,
+          })),
+          kegiatanPenutup: (p.kegiatanPenutup || []).map((k: any, kidx: number) => ({
+            id: `p${idx + 1}-tut-${kidx}`,
+            phaseName: k.phaseName || 'Refleksi & Penutup',
+            description: k.description || '',
+            durationMinutes: Number(k.durationMinutes) || 10,
+          })),
+        }))
+      : undefined;
+
+    // If meetingCount > 1 and Gemini didn't supply pertemuanList, auto-generate it
+    if (parsedMeetingCount > 1 && (!mappedPertemuanList || mappedPertemuanList.length === 0)) {
+      const fallbackWithMeetings = generatePedagogicalLessonPlan({
+        curriculum,
+        level,
+        grade,
+        subject,
+        topic,
+        subTopic,
+        timeAllocation,
+        meetingCount: parsedMeetingCount,
+        modelPembelajaran,
+        specialInstructions,
+        semester,
+        academicYear,
+        schoolIdentity: resolvedSchoolIdentity,
+      });
+      mappedPertemuanList = fallbackWithMeetings.pertemuanList;
+    }
 
     // Build the final complete LessonPlan object
     const finalLessonPlan = {
@@ -418,7 +541,7 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
       subTopic,
       semester,
       academicYear,
-      meetingCount: 1,
+      meetingCount: parsedMeetingCount,
       timeAllocation,
       schoolIdentity: resolvedSchoolIdentity,
       capaianPembelajaran: parsedData.capaianPembelajaran || '',
@@ -435,6 +558,7 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
       metodePembelajaran: parsedData.metodePembelajaran || 'Diskusi, Tanya Jawab, Penugasan',
       pemahamanBermakna: parsedData.pemahamanBermakna || '',
       pertanyaanPemantik: parsedData.pertanyaanPemantik || [],
+      deepLearningElements: parsedData.deepLearningElements,
       kompetensiInti: parsedData.kompetensiInti,
       kompetensiDasar: parsedData.kompetensiDasar,
       nilaiKarakter: parsedData.nilaiKarakter,
@@ -456,6 +580,7 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
         description: k.description || '',
         durationMinutes: k.durationMinutes || 10,
       })),
+      pertemuanList: mappedPertemuanList,
       asesmenDiagnostik: parsedData.asesmenDiagnostik || 'Pertanyaan pemantik lisan',
       asesmenFormatif: parsedData.asesmenFormatif || 'Penilaian observasi keaktifan dan lembar kerja',
       asesmenSumatif: parsedData.asesmenSumatif || 'Tes tertulis akhir materi',
@@ -497,6 +622,7 @@ ${specialInstructions ? `- Catatan Khusus Guru: ${specialInstructions}` : ''}`;
       topic,
       subTopic,
       timeAllocation,
+      meetingCount: resolvedMeetingCount,
       modelPembelajaran,
       specialInstructions,
       semester,

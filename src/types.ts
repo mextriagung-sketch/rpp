@@ -1,4 +1,4 @@
-export type CurriculumType = 'merdeka' | 'k13' | 'custom';
+export type CurriculumType = 'merdeka' | 'merdeka_deep_learning' | 'k13' | 'custom';
 
 export type EducationLevel = 'SD' | 'SMP' | 'SMA' | 'SMK' | 'PAUD';
 
@@ -28,6 +28,15 @@ export interface AssessmentRubricItem {
   developing: string;    // Skor 2 / Cukup (Berkembang)
   proficient: string;    // Skor 3 / Baik (Layak/Cakap)
   advanced: string;      // Skor 4 / Sangat Baik (Mahir)
+}
+
+export interface PertemuanDetail {
+  pertemuanKe: number;
+  fokusMateri?: string;
+  alokasiWaktu?: string;
+  kegiatanPendahuluan?: ActivityStep[];
+  kegiatanInti?: ActivityStep[];
+  kegiatanPenutup?: ActivityStep[];
 }
 
 export interface LessonPlan {
@@ -60,6 +69,13 @@ export interface LessonPlan {
   pemahamanBermakna?: string;
   pertanyaanPemantik?: string[];
 
+  // Komponen Deep Learning (Mindful, Meaningful, Joyful Learning)
+  deepLearningElements?: {
+    mindfulLearning?: string;   // Pembelajaran Berkesadaran (kesadaran penuh, mendengarkan aktif, menghargai keunikan siswa)
+    meaningfulLearning?: string; // Pembelajaran Bermakna (kontekstual, terhubung dunia nyata, pemecahan masalah otentik)
+    joyfulLearning?: string;    // Pembelajaran Menggembirakan (antusiasme, kepuasan belajar, apresiasi proses)
+  };
+
   // Komponen K13 (Jika memilih K13)
   kompetensiInti?: {
     ki1?: string; // Sikap Spiritual
@@ -75,6 +91,7 @@ export interface LessonPlan {
   kegiatanPendahuluan: ActivityStep[];
   kegiatanInti: ActivityStep[];
   kegiatanPenutup: ActivityStep[];
+  pertemuanList?: PertemuanDetail[];
 
   // Asesmen & Penilaian
   asesmenDiagnostik?: string;
@@ -108,7 +125,9 @@ export interface GenerateRPPRequest {
   grade: string;
   subject: string;
   topic: string;
+  subTopic?: string;
   timeAllocation: string;
+  meetingCount?: number;
   modelPembelajaran?: string;
   specialInstructions?: string;
   schoolName?: string;

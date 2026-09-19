@@ -7,6 +7,7 @@ import {
   FileCheck,
   CheckCircle2,
   BookOpen,
+  Sparkles,
 } from 'lucide-react';
 import { LessonPlan } from '../types';
 import { exportLessonPlanToDocx, downloadBlob } from '../services/docxExport';
@@ -53,7 +54,8 @@ export const RPPPreviewModal: React.FC<RPPPreviewModalProps> = ({
     window.print();
   };
 
-  const isMerdeka = plan.curriculum === 'merdeka';
+  const isDeepLearning = plan.curriculum === 'merdeka_deep_learning';
+  const isMerdeka = plan.curriculum === 'merdeka' || isDeepLearning;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
@@ -69,7 +71,11 @@ export const RPPPreviewModal: React.FC<RPPPreviewModalProps> = ({
                 Pratinjau Dokumen: {plan.title}
               </h2>
               <p className="text-[11px] text-slate-300">
-                {isMerdeka ? 'Kurikulum Merdeka (Modul Ajar)' : 'Kurikulum 2013'} • Siap Cetak & Ekspor Word
+                {isDeepLearning
+                  ? 'Kurikulum Merdeka (Deep Learning) • Siap Cetak & Ekspor Word'
+                  : isMerdeka
+                  ? 'Kurikulum Merdeka (Modul Ajar) • Siap Cetak & Ekspor Word'
+                  : 'Kurikulum 2013 • Siap Cetak & Ekspor Word'}
               </p>
             </div>
           </div>
@@ -148,10 +154,16 @@ export const RPPPreviewModal: React.FC<RPPPreviewModalProps> = ({
             {/* Document Title */}
             <div className="text-center mb-6">
               <h2 className="text-base sm:text-lg font-black tracking-tight uppercase text-slate-900">
-                {isMerdeka ? 'MODUL AJAR (RPP)' : 'RENCANA PELAKSANAAN PEMBELAJARAN (RPP)'}
+                {isDeepLearning
+                  ? 'MODUL AJAR (DEEP LEARNING)'
+                  : isMerdeka
+                  ? 'MODUL AJAR (RPP)'
+                  : 'RENCANA PELAKSANAAN PEMBELAJARAN (RPP)'}
               </h2>
               <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mt-0.5">
-                {isMerdeka
+                {isDeepLearning
+                  ? `KURIKULUM MERDEKA - PENDEKATAN DEEP LEARNING (MINDFUL, MEANINGFUL, JOYFUL) ${plan.fase ? `- ${plan.fase}` : ''}`
+                  : isMerdeka
                   ? `KURIKULUM MERDEKA ${plan.fase ? `- ${plan.fase}` : ''}`
                   : 'KURIKULUM 2013 (REVISI)'}
               </p>
@@ -196,6 +208,15 @@ export const RPPPreviewModal: React.FC<RPPPreviewModalProps> = ({
                       {plan.topic} {plan.subTopic ? `(${plan.subTopic})` : ''}
                     </td>
                   </tr>
+                  {(plan.meetingCount || (plan.pertemuanList && plan.pertemuanList.length > 0)) && (
+                    <tr className="border-b border-slate-100">
+                      <td className="py-1 font-semibold text-slate-700">Jumlah Pertemuan</td>
+                      <td className="py-1 text-slate-500">:</td>
+                      <td className="py-1 font-medium text-slate-900">
+                        {plan.meetingCount || plan.pertemuanList?.length} Pertemuan
+                      </td>
+                    </tr>
+                  )}
                   <tr className="border-b border-slate-100">
                     <td className="py-1 font-semibold text-slate-700">Alokasi Waktu</td>
                     <td className="py-1 text-slate-500">:</td>
@@ -306,84 +327,252 @@ export const RPPPreviewModal: React.FC<RPPPreviewModalProps> = ({
                       </ul>
                     </div>
                   )}
+
+                  {/* Deep Learning 3 Pillars */}
+                  {(isDeepLearning || plan.deepLearningElements) && (
+                    <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-br from-teal-50/90 to-emerald-50/70 border border-teal-200 shadow-2xs">
+                      <h4 className="text-xs font-bold text-teal-900 mb-2 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                        F. Tiga Pilar Pendekatan Deep Learning (Mindful, Meaningful, & Joyful Learning)
+                      </h4>
+                      <div className="space-y-2 text-xs">
+                        <div className="bg-white/80 p-2.5 rounded-lg border border-teal-100">
+                          <p className="font-bold text-teal-950 flex items-center gap-1.5 text-xs">
+                            <span className="text-sm">🧘</span> Mindful Learning (Pembelajaran Berkesadaran)
+                          </p>
+                          <p className="text-slate-700 mt-1 text-[11px] leading-relaxed">
+                            {plan.deepLearningElements?.mindfulLearning ||
+                              'Menghadirkan kesadaran penuh, memusatkan perhatian, menghargai keunikan cara belajar siswa, dan menyimak secara aktif dan empatik.'}
+                          </p>
+                        </div>
+                        <div className="bg-white/80 p-2.5 rounded-lg border border-teal-100">
+                          <p className="font-bold text-teal-950 flex items-center gap-1.5 text-xs">
+                            <span className="text-sm">💡</span> Meaningful Learning (Pembelajaran Bermakna)
+                          </p>
+                          <p className="text-slate-700 mt-1 text-[11px] leading-relaxed">
+                            {plan.deepLearningElements?.meaningfulLearning ||
+                              'Menghubungkan esensi materi secara kontekstual dengan pengalaman nyata siswa untuk pemecahan masalah otentik dan pemahaman mendalam jangka panjang.'}
+                          </p>
+                        </div>
+                        <div className="bg-white/80 p-2.5 rounded-lg border border-teal-100">
+                          <p className="font-bold text-teal-950 flex items-center gap-1.5 text-xs">
+                            <span className="text-sm">🎉</span> Joyful Learning (Pembelajaran Menggembirakan)
+                          </p>
+                          <p className="text-slate-700 mt-1 text-[11px] leading-relaxed">
+                            {plan.deepLearningElements?.joyfulLearning ||
+                              'Membangkitkan rasa ingin tahu yang menyenangkan (curiosity), menciptakan iklim kelas aman dan apresiatif tanpa rasa takut salah, serta merayakan setiap proses belajar.'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
 
             {/* III. KEGIATAN PEMBELAJARAN */}
-            <div className="mb-6">
+            <div className="mb-6 space-y-4">
               <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b border-slate-200 pb-1 mb-2.5">
                 III. Langkah-Langkah Pembelajaran
               </h3>
-              <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-slate-100 border-b border-slate-300 text-slate-700">
-                      <th className="p-2 text-left font-bold w-1/4 border-r border-slate-300">Kegiatan / Tahap</th>
-                      <th className="p-2 text-left font-bold w-2/3 border-r border-slate-300">Deskripsi Aktivitas Pembelajaran</th>
-                      <th className="p-2 text-center font-bold w-1/12">Waktu</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {/* Pendahuluan */}
-                    <tr className="border-b border-slate-200 bg-slate-50/50">
-                      <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
-                        1. Pendahuluan
-                      </td>
-                      <td className="p-2 border-r border-slate-300 space-y-1">
-                        {plan.kegiatanPendahuluan?.map((step, idx) => (
-                          <div key={idx}>
-                            <span className="font-semibold text-slate-800">• {step.phaseName}: </span>
-                            <span className="text-slate-700">{step.description}</span>
-                          </div>
-                        ))}
-                      </td>
-                      <td className="p-2 text-center font-semibold text-slate-700 align-top">
-                        {plan.kegiatanPendahuluan?.reduce((a, b) => a + (b.durationMinutes || 0), 0)} mnt
-                      </td>
-                    </tr>
 
-                    {/* Kegiatan Inti */}
-                    <tr className="border-b border-slate-200">
-                      <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
-                        2. Kegiatan Inti
-                        <p className="text-[11px] font-normal text-slate-500 italic mt-0.5">
-                          ({plan.modelPembelajaran || 'Sintaks Model'})
-                        </p>
-                      </td>
-                      <td className="p-2 border-r border-slate-300 space-y-2">
-                        {plan.kegiatanInti?.map((step, idx) => (
-                          <div key={idx}>
-                            <p className="font-bold text-blue-900">• {step.phaseName}</p>
-                            <p className="text-slate-700 mt-0.5">{step.description}</p>
-                          </div>
-                        ))}
-                      </td>
-                      <td className="p-2 text-center font-semibold text-slate-700 align-top">
-                        {plan.kegiatanInti?.reduce((a, b) => a + (b.durationMinutes || 0), 0)} mnt
-                      </td>
-                    </tr>
+              {plan.pertemuanList && plan.pertemuanList.length > 0 ? (
+                /* MULTI-MEETING RENDERING */
+                plan.pertemuanList.map((meeting, mIdx) => (
+                  <div
+                    key={meeting.pertemuanKe || mIdx}
+                    className="border border-slate-300 rounded-lg overflow-hidden text-xs shadow-2xs"
+                  >
+                    <div className="bg-slate-100 px-3 py-2 border-b border-slate-300 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <span className="font-extrabold text-blue-900">
+                        PERTEMUAN KE-{meeting.pertemuanKe || mIdx + 1}: {meeting.fokusMateri}
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-300 shrink-0">
+                        {meeting.alokasiWaktu || '2 x 35 Menit'}
+                      </span>
+                    </div>
 
-                    {/* Penutup */}
-                    <tr className="bg-slate-50/50">
-                      <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
-                        3. Penutup
-                      </td>
-                      <td className="p-2 border-r border-slate-300 space-y-1">
-                        {plan.kegiatanPenutup?.map((step, idx) => (
-                          <div key={idx}>
-                            <span className="font-semibold text-slate-800">• {step.phaseName}: </span>
-                            <span className="text-slate-700">{step.description}</span>
-                          </div>
-                        ))}
-                      </td>
-                      <td className="p-2 text-center font-semibold text-slate-700 align-top">
-                        {plan.kegiatanPenutup?.reduce((a, b) => a + (b.durationMinutes || 0), 0)} mnt
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-300 text-slate-700 text-[11px]">
+                          <th className="p-2 text-left font-bold w-1/4 border-r border-slate-300">
+                            Kegiatan / Tahap
+                          </th>
+                          <th className="p-2 text-left font-bold w-2/3 border-r border-slate-300">
+                            Deskripsi Aktivitas Pembelajaran
+                          </th>
+                          <th className="p-2 text-center font-bold w-1/12">Waktu</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* Pendahuluan */}
+                        <tr className="border-b border-slate-200 bg-slate-50/40">
+                          <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                            1. Pendahuluan
+                          </td>
+                          <td className="p-2 border-r border-slate-300 space-y-1">
+                            {meeting.kegiatanPendahuluan?.map((step, idx) => (
+                              <div key={idx}>
+                                <span className="font-semibold text-slate-800">
+                                  • {step.phaseName}:{' '}
+                                </span>
+                                <span className="text-slate-700">{step.description}</span>
+                              </div>
+                            ))}
+                          </td>
+                          <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                            {meeting.kegiatanPendahuluan?.reduce(
+                              (a, b) => a + (b.durationMinutes || 0),
+                              0,
+                            )}{' '}
+                            mnt
+                          </td>
+                        </tr>
+
+                        {/* Kegiatan Inti */}
+                        <tr className="border-b border-slate-200">
+                          <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                            2. Kegiatan Inti
+                            <p className="text-[11px] font-normal text-slate-500 italic mt-0.5">
+                              ({plan.modelPembelajaran || 'Sintaks Model'})
+                            </p>
+                          </td>
+                          <td className="p-2 border-r border-slate-300 space-y-2">
+                            {meeting.kegiatanInti?.map((step, idx) => (
+                              <div key={idx}>
+                                <p className="font-bold text-blue-900">• {step.phaseName}</p>
+                                <p className="text-slate-700 mt-0.5">{step.description}</p>
+                              </div>
+                            ))}
+                          </td>
+                          <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                            {meeting.kegiatanInti?.reduce(
+                              (a, b) => a + (b.durationMinutes || 0),
+                              0,
+                            )}{' '}
+                            mnt
+                          </td>
+                        </tr>
+
+                        {/* Penutup */}
+                        <tr className="bg-slate-50/40">
+                          <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                            3. Penutup
+                          </td>
+                          <td className="p-2 border-r border-slate-300 space-y-1">
+                            {meeting.kegiatanPenutup?.map((step, idx) => (
+                              <div key={idx}>
+                                <span className="font-semibold text-slate-800">
+                                  • {step.phaseName}:{' '}
+                                </span>
+                                <span className="text-slate-700">{step.description}</span>
+                              </div>
+                            ))}
+                          </td>
+                          <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                            {meeting.kegiatanPenutup?.reduce(
+                              (a, b) => a + (b.durationMinutes || 0),
+                              0,
+                            )}{' '}
+                            mnt
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+              ) : (
+                /* SINGLE-MEETING RENDERING */
+                <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-300 text-slate-700">
+                        <th className="p-2 text-left font-bold w-1/4 border-r border-slate-300">
+                          Kegiatan / Tahap
+                        </th>
+                        <th className="p-2 text-left font-bold w-2/3 border-r border-slate-300">
+                          Deskripsi Aktivitas Pembelajaran
+                        </th>
+                        <th className="p-2 text-center font-bold w-1/12">Waktu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {/* Pendahuluan */}
+                      <tr className="border-b border-slate-200 bg-slate-50/50">
+                        <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                          1. Pendahuluan
+                        </td>
+                        <td className="p-2 border-r border-slate-300 space-y-1">
+                          {plan.kegiatanPendahuluan?.map((step, idx) => (
+                            <div key={idx}>
+                              <span className="font-semibold text-slate-800">
+                                • {step.phaseName}:{' '}
+                              </span>
+                              <span className="text-slate-700">{step.description}</span>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                          {plan.kegiatanPendahuluan?.reduce(
+                            (a, b) => a + (b.durationMinutes || 0),
+                            0,
+                          )}{' '}
+                          mnt
+                        </td>
+                      </tr>
+
+                      {/* Kegiatan Inti */}
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                          2. Kegiatan Inti
+                          <p className="text-[11px] font-normal text-slate-500 italic mt-0.5">
+                            ({plan.modelPembelajaran || 'Sintaks Model'})
+                          </p>
+                        </td>
+                        <td className="p-2 border-r border-slate-300 space-y-2">
+                          {plan.kegiatanInti?.map((step, idx) => (
+                            <div key={idx}>
+                              <p className="font-bold text-blue-900">• {step.phaseName}</p>
+                              <p className="text-slate-700 mt-0.5">{step.description}</p>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                          {plan.kegiatanInti?.reduce(
+                            (a, b) => a + (b.durationMinutes || 0),
+                            0,
+                          )}{' '}
+                          mnt
+                        </td>
+                      </tr>
+
+                      {/* Penutup */}
+                      <tr className="bg-slate-50/50">
+                        <td className="p-2 font-bold text-slate-800 align-top border-r border-slate-300">
+                          3. Penutup
+                        </td>
+                        <td className="p-2 border-r border-slate-300 space-y-1">
+                          {plan.kegiatanPenutup?.map((step, idx) => (
+                            <div key={idx}>
+                              <span className="font-semibold text-slate-800">
+                                • {step.phaseName}:{' '}
+                              </span>
+                              <span className="text-slate-700">{step.description}</span>
+                            </div>
+                          ))}
+                        </td>
+                        <td className="p-2 text-center font-semibold text-slate-700 align-top">
+                          {plan.kegiatanPenutup?.reduce(
+                            (a, b) => a + (b.durationMinutes || 0),
+                            0,
+                          )}{' '}
+                          mnt
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* IV. ASESMEN & PENILAIAN */}
