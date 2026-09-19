@@ -1,0 +1,6 @@
+{
+  "name": "RPP & Modul Ajar Generator",
+  "description": "Aplikasi pembuatan RPP dan Modul Ajar lengkap untuk guru dengan kustomisasi kurikulum dan ekspor dokumen Word (.docx) otomatis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
